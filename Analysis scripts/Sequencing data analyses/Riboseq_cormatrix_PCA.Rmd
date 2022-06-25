@@ -1,0 +1,167 @@
+---
+title: "Reproducibility of Biological Replicates of Ribo-Seq Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reproducibility of Biological Replicates of Ribo-Seq Data
+
+Load required functions and packages
+```{r}
+source("functions_sequencing.R")
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+library(ggh4x)
+library(DESeq2)
+```
+
+#### Correlation matrix
+Load data
+```{r}
+ribo_IP <- read.csv("../../Processed data/RSEM output/Riboseq_IP80S_RSEM_FPKM_isoforms.results.csv", row.names = 1)
+ribo_total <- read.csv("../../Processed data/RSEM output/Riboseq_Total80S_RSEM_FPKM_isoforms.results.csv", row.names = 1)
+
+ribo <- cbind(ribo_IP[, grepl(pattern = "minus_20.32nt", x = colnames(ribo_IP))],
+              ribo_IP[, grepl(pattern = "U.*[0-9]_27.32nt", x = colnames(ribo_IP))],
+              ribo_total[, grepl(pattern = "minus_20.32nt", x = colnames(ribo_total))],
+              ribo_total[, grepl(pattern = "[0-9]_27.32nt", x = colnames(ribo_total))])
+rm(ribo_IP, ribo_total)
+cdt <- ccdt(ribo)
+```
+
+```{r}
+# Add replicate numbers
+cdt$rep <- c(c(1, 2), rep(c(1, 2, 3), times = 3), rep(c(1, 2), times = 4), rep(c(1, 2, 3), times = 4), rep(c(1, 2), times = 3))
+
+# Reformat strain names
+newnames <- toupper(apply(cdt[, c("strainCHX", "ribosomes", "rep")], 1, paste0, collapse = "@"))
+newnames <- gsub("_", "-", newnames)
+newnames <- sub("WT@", "WT + EV\n(N)@", newnames)
+newnames <- sub("WTPLUSEV", "WT + EV\n(C)", newnames)
+newnames <- sub("-UPF2DEL", "/upf2\u0394", newnames)
+newnames <- sub("OE3", "FLAG-UPF1\nUPF2/3 EE", newnames)
+newnames <- sub("@PLUS@", "@+CHX@", newnames)
+newnames <- sub("@MINUS@", "@-CHX@", newnames)
+newnames <- sub("RIBOSEQ", "", newnames)
+newnames <- sub("TOTAL", "Total", newnames)
+
+# log-transform RPKM
+tab2 <- log10(ribo)
+tab2 <- do.call(data.frame, lapply(tab2, function(x) replace(x, is.infinite(x), NA)))
+colnames(tab2) <- newnames
+
+# correlation
+R_cor <- cor(tab2, method = "pearson", use = "pairwise.complete.obs")
+```
+
+Plot
+```{r}
+R_cor <- reshape2::melt(R_cor)
+R_cor$strain1 <- sub("@.*", "", R_cor$Var1)
+R_cor$CHX1 <- sapply(strsplit(as.character(R_cor$Var1), split = "@"), "[", 2)
+R_cor$ribo1 <- sapply(strsplit(as.character(R_cor$Var1), split = "@"), "[", 3)
+R_cor$rep1 <- sub(".*@", "", R_cor$Var1)
+
+R_cor$strain2 <- sub("@.*", "", R_cor$Var2)
+R_cor$CHX2 <- sapply(strsplit(as.character(R_cor$Var2), split = "@"), "[", 2)
+R_cor$ribo2 <- sapply(strsplit(as.character(R_cor$Var2), split = "@"), "[", 3)
+R_cor$rep2 <- sub(".*@", "", R_cor$Var2)
+R_cor$rep2 <- factor(R_cor$rep2, levels = c("3", "2", "1"))
+
+strain_order <- sort(unique(R_cor$strain1))[c(7, 2, 3, 6, 4, 5, 1)]
+R_cor$strain1 <- factor(R_cor$strain1, levels = strain_order)
+R_cor$strain2 <- factor(R_cor$strain2, levels = strain_order)
+```
+```{r}
+cormat_ribo <- ggplot(R_cor) +
+  geom_tile(aes(x = rep1, y = rep2, fill = value), height = 0.9, width = 0.9, color = NA) +
+  scale_fill_distiller(name = "Pearson's r  ", palette = "YlOrRd", direction = 1, limits = c(0.4, 1)) +
+  facet_nested(strain2+CHX2+ribo2~strain1+CHX1+ribo1, scales = "free", space = "free", 
+               nest_line = TRUE, strip = strip_nested(size = "variable")) +
+  xlab("") + ylab("") +
+  theme_bw(base_size = 8) + 
+  theme(panel.grid = element_blank(), panel.spacing = unit(0.1, "cm"), panel.border = element_rect(size = 0.2),
+        strip.background = element_blank(), strip.text = element_text(face = "italic"), 
+        legend.position = "top", legend.key.height = unit(0.25, "cm"), aspect.ratio = 1)
+```
+
+#### PCA
+Load data
+```{r}
+ribo_IP <- read.csv("../../Processed data/RSEM output/Riboseq_IP80S_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+ribo_total <- read.csv("../../Processed data/RSEM output/Riboseq_Total80S_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+
+ribo <- cbind(ribo_IP[, grepl(pattern = "minus_20.32nt", x = colnames(ribo_IP))],
+              ribo_IP[, grepl(pattern = "U.*[0-9]_27.32nt", x = colnames(ribo_IP))],
+              ribo_total[, grepl(pattern = "minus_20.32nt", x = colnames(ribo_total))],
+              ribo_total[, grepl(pattern = "[0-9]_27.32nt", x = colnames(ribo_total))])
+rm(ribo_IP, ribo_total)
+cdt <- ccdt(ribo)
+```
+
+```{r}
+# countData
+tab <- round(x = ribo, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+# colData
+cdt <- ccdt(tab)
+```
+
+Generate DESeq2 object
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~lib)
+DGE <- DESeq(dds)
+vsd <- vst(DGE, blind = FALSE)
+pcaData <- plotPCA(vsd, intgroup = c("strain", "CHX", "ribosomes"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"), digits = 1)
+```
+
+Plot
+```{r}
+pcaData$strain <- recode_factor(pcaData$strain, WT = "WT + EV (N)", FLAG_Upf1 = "FLAG-UPF1", OE3 = "FLAG-UPF1 UPF2/UPF3 EE", WTplusEV = "WT + EV (C)", Upf1_FLAG = "UPF1-FLAG", `Upf1_FLAG_upf2del` = "UPF1-FLAG/upf2\u0394", DE572AA_FLAG = "DE572AA-FLAG")
+pcaData$rep <- c(c(1, 2), rep(c(1, 2, 3), times = 3), rep(c(1, 2), times = 4), rep(c(1, 2, 3), times = 4), rep(c(1, 2), times = 3))
+pcaData$CHX <- recode_factor(pcaData$CHX, plus = "+CHX", minus = "-CHX")
+pcaData$ribosomes <- sub("Riboseq", "", pcaData$ribosomes)
+pcaData$riboCHX <- paste0(pcaData$ribosomes, " ", pcaData$CHX)
+```
+```{r}
+pall <- RColorBrewer::brewer.pal(n = 12, "Paired")
+#scales::show_col(pall)
+pca_ribo <- ggplot(pcaData, aes(x = PC1, y = PC2, color = strain)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
+  geom_vline(xintercept = 0, linetype = "dashed", size = 0.5) +
+  geom_point(aes(shape = riboCHX), alpha = 1, size = 1, stroke = 0.5) +
+  geom_text(aes(label = rep), size = 1.5, nudge_y = 0.5, show.legend = FALSE) +
+  xlab(paste0("PCA: ", percentVar[1], "% variance")) + ylab(paste0("PCA: ", percentVar[2], "% variance")) +
+  scale_shape_manual(name = "Library", values = c(`Total -CHX` = 0, `Total +CHX` = 12, `IP -CHX` = 1, `IP +CHX` = 10)) +
+  scale_color_manual(values = c("grey20", "#E31A1C", "#6A3D9A", # N-term
+                                "grey60", "#FB9A99", "#B2DF8A", "#A6CEE3")) + # C-term
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "bottom", legend.box = "vertical", legend.margin = unit(0.5, "cm"), legend.box.just = "left", legend.key.height = unit(0.1, "cm")) +
+  guides(color = guide_legend(title = "Strain", label.theme = element_text(face = "italic", size = 6), byrow = TRUE, 
+                              order = 1, nrow = 3),
+         shape = guide_legend(order = 2, nrow = 1))
+```
+
+#### Combine plots
+```{r}
+p <- ggarrange(cormat_ribo, pca_ribo, nrow = 2, labels = "AUTO", heights = c(0.7, 0.3), font.label = list(size = 9, face = "bold"))
+```
+```{r}
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+cairo_pdf(filename = "../../Figures/Replicate_reproducibility_Riboseq_6.5x10.pdf", family = "Arial", width = 6.5, height = 10) 
+p
+dev.off()
+```

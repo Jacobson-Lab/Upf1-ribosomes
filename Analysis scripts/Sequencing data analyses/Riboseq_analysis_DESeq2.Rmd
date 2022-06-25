@@ -1,0 +1,427 @@
+---
+title: "Differential Expression Analysis of Ribo-Seq Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Differential Expression Analysis of Ribo-Seq Data
+
+Load required libraries and functions
+```{r}
+library(DESeq2)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(rstatix)
+library(ggh4x)
+library(ggrepel)
+library(scales)
+source("functions_sequencing.R")
+nmd_up <- scan("nmd_up_907.txt", character())
+```
+
+## Differential expression analysis using DESeq2
+
+Load data
+```{r}
+ribo_IP <- read.csv("../../Processed data/RSEM output/Riboseq_IP80S_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+ribo_total <- read.csv("../../Processed data/RSEM output/Riboseq_Total80S_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+```
+
+IMPORTANT: Run the entirety of each group of samples (all code chunks under each "####") at once to avoid sample mix-up.
+
+#### FLAG-UPF1 (-CHX)
+Select libraries
+```{r}
+ribo_n_minus1 <- cbind(ribo_IP[, grepl(pattern = "^RU481[69]minus_20.23", x = colnames(ribo_IP))],
+                       ribo_IP[, grepl(pattern = "^RU481[69]minus_27.32", x = colnames(ribo_IP))],
+                       ribo_total[, grepl(pattern = "^R481[69]minus_20.23", x = colnames(ribo_total))],
+                       ribo_total[, grepl(pattern = "^R481[69]minus_27.32", x = colnames(ribo_total))])
+ribo_n_minus2 <- data.frame(RU4816minus = ribo_IP$RU4816minus_20.23nt + ribo_IP$RU4816minus_27.32nt,
+                            RU4819minus = ribo_IP$RU4819minus_20.23nt + ribo_IP$RU4819minus_27.32nt,
+                            R4816minus = ribo_total$R4816minus_20.23nt + ribo_total$R4816minus_27.32nt,
+                            R4819minus = ribo_total$R4819minus_20.23nt + ribo_total$R4819minus_27.32nt)
+rownames(ribo_n_minus2) <- rownames(ribo_IP)
+colnames(ribo_n_minus2) <- paste0(colnames(ribo_n_minus2), "_20.32nt")
+ribo_n_minus <- cbind(ribo_n_minus1, ribo_n_minus2)
+rm(ribo_n_minus1, ribo_n_minus2)
+```
+
+Create DESeq Object
+```{r}
+# countData
+tab <- round(x = ribo_n_minus, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+
+# colData
+cdt <- ccdt(count_tab = tab)
+
+# DESeq
+dds2 <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~size + size:ribosomes)
+dds2$ribosomes <- relevel(dds2$ribosomes, ref = "TotalRiboseq")
+DGE2 <- DESeq(dds2)
+```
+
+Results
+```{r}
+alpha_c <- 0.1
+resultsNames(DGE2)
+res_t <- list()
+res_t[["FLAG-UPF1_minus_all_IPvsTotal"]] <- results(DGE2, name = "size20.32nt.ribosomesIPRiboseq", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_minus_maj_IPvsTotal"]] <- results(DGE2, name = "size20.23nt.ribosomesIPRiboseq", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_minus_min_IPvsTotal"]] <- results(DGE2, name = "size27.32nt.ribosomesIPRiboseq", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_minus_minvsmaj"]] <- results(DGE2, contrast = list(c("size27.32nt.ribosomesIPRiboseq"), c("size20.23nt.ribosomesIPRiboseq")), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+```
+
+For IP vs Total, add mean normalized counts data for scatter plot
+For Minor vs Major, add respective log2FoldChange for scatter plot
+```{r}
+padj_c <- 0.05
+colnames(dds2)
+res_u1m <- list()
+res_u1m[["FLAG-UPF1_minus_all_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_minus_all_IPvsTotal`, numerator_col = c(9:10), denominator_col = c(11:12), padj_cutoff = padj_c)
+res_u1m[["FLAG-UPF1_minus_maj_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_minus_maj_IPvsTotal`, numerator_col = c(1:2), denominator_col = c(5:6), padj_cutoff = padj_c)
+res_u1m[["FLAG-UPF1_minus_min_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_minus_min_IPvsTotal`, numerator_col = c(3:4), denominator_col = c(7:8), padj_cutoff = padj_c)
+res_u1m[["FLAG-UPF1_minus_minvsmaj"]] <- cbind(data.frame(row = res_t$`FLAG-UPF1_minus_minvsmaj`$row, 
+                                                          LFC_numerator = res_t$`FLAG-UPF1_minus_min_IPvsTotal`$log2FoldChange,
+                                                          LFC_denominator = res_t$`FLAG-UPF1_minus_maj_IPvsTotal`$log2FoldChange),
+                                               res_t$`FLAG-UPF1_minus_minvsmaj`[, -1])
+save(res_u1m, file = "res_u1m.Rdata")
+```
+
+#### FLAG-UPF1 (+CHX)
+Select libraries
+```{r}
+ribo_n_plus1 <- cbind(ribo_IP[, grepl(pattern = "^RU481[69]_27.32nt", x = colnames(ribo_IP))],
+                      ribo_IP[, grepl(pattern = "^RU481[69]_37.43nt", x = colnames(ribo_IP))],
+                      ribo_total[, grepl(pattern = "^R481[69]_27.32nt", x = colnames(ribo_total))])
+ribo_n_plus2 <- data.frame(RU4816 = ribo_IP$RU4816_27.32nt + ribo_IP$RU4816_37.43nt,
+                           RU4819 = ribo_IP$RU4819_27.32nt + ribo_IP$RU4819_37.43nt)
+rownames(ribo_n_plus2) <- rownames(ribo_IP)
+colnames(ribo_n_plus2) <- paste0(colnames(ribo_n_plus2), "_27.43nt")
+ribo_n_plus <- cbind(ribo_n_plus1, ribo_n_plus2)
+rm(ribo_n_plus1, ribo_n_plus2)
+```
+
+Create DESeq Object
+```{r}
+# countData
+tab <- round(x = ribo_n_plus, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+
+# colData
+cdt <- ccdt(count_tab = tab)
+
+# DESeq
+dds2 <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~ribosomes_size)
+dds2$ribosomes_size <- relevel(dds2$ribosomes_size, ref = "TotalRiboseq@27.32nt")
+DGE2 <- DESeq(dds2)
+```
+
+Results
+```{r}
+alpha_c <- 0.1
+resultsNames(DGE2)
+res_t <- list()
+res_t[["FLAG-UPF1_plus_all_IPvsTotal"]] <- results(DGE2, name = "ribosomes_size_IPRiboseq.27.43nt_vs_TotalRiboseq.27.32nt", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_plus_maj_IPvsTotal"]] <- results(DGE2, name = "ribosomes_size_IPRiboseq.27.32nt_vs_TotalRiboseq.27.32nt", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_plus_min_IPvsTotal"]] <- results(DGE2, name = "ribosomes_size_IPRiboseq.37.43nt_vs_TotalRiboseq.27.32nt", pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["FLAG-UPF1_plus_minvsmaj"]] <- results(DGE2, contrast = list(c("ribosomes_size_IPRiboseq.37.43nt_vs_TotalRiboseq.27.32nt"), c("ribosomes_size_IPRiboseq.27.32nt_vs_TotalRiboseq.27.32nt")), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.1)
+```
+
+For IP vs Total, add mean normalized counts data for scatter plot
+For Minor vs Major, add respective log2FoldChange for scatter plot
+```{r}
+padj_c <- 0.05
+colnames(dds2)
+res_u1p <- list()
+res_u1p[["FLAG-UPF1_plus_all_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_plus_all_IPvsTotal`, numerator_col = c(7:8), denominator_col = c(5:6), padj_cutoff = padj_c)
+res_u1p[["FLAG-UPF1_plus_maj_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_plus_maj_IPvsTotal`, numerator_col = c(1:2), denominator_col = c(5:6), padj_cutoff = padj_c)
+res_u1p[["FLAG-UPF1_plus_min_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`FLAG-UPF1_plus_min_IPvsTotal`, numerator_col = c(3:4), denominator_col = c(5:6), padj_cutoff = padj_c)
+res_u1p[["FLAG-UPF1_plus_minvsmaj"]] <- cbind(data.frame(row = res_t$`FLAG-UPF1_plus_minvsmaj`$row, 
+                                                         LFC_numerator = res_t$`FLAG-UPF1_plus_min_IPvsTotal`$log2FoldChange,
+                                                         LFC_denominator = res_t$`FLAG-UPF1_plus_maj_IPvsTotal`$log2FoldChange),
+                                              res_t$`FLAG-UPF1_plus_minvsmaj`[, -1])
+save(res_u1p, file = "res_u1p.Rdata")
+```
+
+#### C-terminal (+CHX)
+Select libraries
+```{r}
+ribo_c1 <- cbind(ribo_IP[, grepl(pattern = "^QU5[0-9]{3}", x = colnames(ribo_IP))],
+                 ribo_total[, grepl(pattern = "^Q5[0-9]{3}", x = colnames(ribo_total))])
+ribo_c1 <- ribo_c1[, !grepl(pattern = "504[123]", x = colnames(ribo_c1))]
+ribo_c2 <- data.frame(QU5017 = ribo_IP$QU5017_27.32nt + ribo_IP$QU5017_37.43nt, 
+                      QU5019 = ribo_IP$QU5019_27.32nt + ribo_IP$QU5019_37.43nt, 
+                      QU5020 = ribo_IP$QU5020_27.32nt + ribo_IP$QU5020_37.43nt, 
+                      QU5334 = ribo_IP$QU5334_27.32nt + ribo_IP$QU5334_37.43nt, 
+                      QU5337 = ribo_IP$QU5337_27.32nt + ribo_IP$QU5337_37.43nt, 
+                      QU5338 = ribo_IP$QU5338_27.32nt + ribo_IP$QU5338_37.43nt)
+rownames(ribo_c2) <- rownames(ribo_IP)
+colnames(ribo_c2) <- paste0(colnames(ribo_c2), "_27.43nt")
+ribo_c <- cbind(ribo_c1, ribo_c2)
+rm(ribo_c1, ribo_c2)
+```
+
+Create DESeq Object
+```{r}
+# countData
+tab <- round(x = ribo_c, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+
+# colData
+cdt <- ccdt(count_tab = tab)
+
+# DESeq
+cdt$strain_ribosome_size <- paste0(cdt$strain, "@", cdt$ribosomes_size)
+dds2 <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~strain_ribosome_size)
+dds2$strain_ribosome_size <- relevel(dds2$strain_ribosome_size, ref = "Upf1_FLAG@TotalRiboseq@27.32nt")
+DGE2 <- DESeq(dds2)
+```
+
+Results
+```{r}
+alpha_c <- 0.1
+xx <- resultsNames(DGE2)
+res_t <- list()
+res_t[["UPF1-FLAG_all_IPvsTotal"]] <- results(DGE2, name = xx[9], pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_maj_IPvsTotal"]] <- results(DGE2, name = xx[8], pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_min_IPvsTotal"]] <- results(DGE2, name = xx[10], pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_minvsmaj"]] <- results(DGE2, contrast = list(c(xx[10]), c(xx[8])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+
+res_t[["UPF1-FLAG_upf2d_all_IPvsTotal"]] <- results(DGE2, contrast = list(c(xx[5]), c(xx[7])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_upf2d_maj_IPvsTotal"]] <- results(DGE2, contrast = list(c(xx[4]), c(xx[7])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_upf2d_min_IPvsTotal"]] <- results(DGE2, contrast = list(c(xx[6]), c(xx[7])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+res_t[["UPF1-FLAG_upf2d_minvsmaj"]] <- results(DGE2, contrast = list(c(xx[6]), c(xx[4])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+
+res_t[["DE572AA-FLAG_maj_IPvsTotal"]] <- results(DGE2, contrast = list(c(xx[2]), c(xx[3])), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = alpha_c)
+```
+
+For IP vs Total, add mean normalized counts data for scatter plot
+For Minor vs Major, add respective log2FoldChange for scatter plot
+```{r}
+padj_c <- 0.05
+colnames(dds2)
+res_c <- list()
+res_c[["UPF1-FLAG_all_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_all_IPvsTotal`, numerator_col = c(25:27), denominator_col = c(16:18), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_maj_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_maj_IPvsTotal`, numerator_col = c(1, 3, 5), denominator_col = c(16:18), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_min_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_min_IPvsTotal`, numerator_col = c(2, 4, 6), denominator_col = c(16:18), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_minvsmaj"]] <- cbind(data.frame(row = res_t$`UPF1-FLAG_minvsmaj`$row, 
+                                                  LFC_numerator = res_t$`UPF1-FLAG_min_IPvsTotal`$log2FoldChange,
+                                                  LFC_denominator = res_t$`UPF1-FLAG_maj_IPvsTotal`$log2FoldChange),
+                                       res_t$`UPF1-FLAG_minvsmaj`[, -1])
+
+res_c[["UPF1-FLAG_upf2d_all_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_upf2d_all_IPvsTotal`, numerator_col = c(28:30), denominator_col = c(22:24), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_upf2d_maj_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_upf2d_maj_IPvsTotal`, numerator_col = c(10, 12, 14), denominator_col = c(22:24), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_upf2d_min_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`UPF1-FLAG_upf2d_min_IPvsTotal`, numerator_col = c(11, 13, 15), denominator_col = c(22:24), padj_cutoff = padj_c)
+res_c[["UPF1-FLAG_upf2d_minvsmaj"]] <- cbind(data.frame(row = res_t$`UPF1-FLAG_upf2d_minvsmaj`$row, 
+                                                        LFC_numerator = res_t$`UPF1-FLAG_upf2d_min_IPvsTotal`$log2FoldChange,
+                                                        LFC_denominator = res_t$`UPF1-FLAG_upf2d_maj_IPvsTotal`$log2FoldChange),
+                                             res_t$`UPF1-FLAG_upf2d_minvsmaj`[, -1])
+
+res_c[["DE572AA-FLAG_maj_IPvsTotal"]] <- norm_count(dds = dds2, res = res_t$`DE572AA-FLAG_maj_IPvsTotal`, numerator_col = c(7:9), denominator_col = c(19:21), padj_cutoff = padj_c)
+
+save(res_c, file = "res_c.Rdata")
+```
+
+### Combine data
+```{r}
+load("res_u1m.Rdata")
+load("res_u1p.Rdata")
+load("res_c.Rdata")
+
+IPvsTotal <- list()
+IPvsTotal[["FLAG-UPF1 (-CHX)"]] <- res_u1m$`FLAG-UPF1_minus_all_IPvsTotal`
+IPvsTotal[["FLAG-UPF1 (+CHX)"]] <- res_u1p$`FLAG-UPF1_plus_all_IPvsTotal`
+IPvsTotal[["UPF1-FLAG (+CHX)"]] <- res_c$`UPF1-FLAG_all_IPvsTotal`
+IPvsTotal[["UPF1-FLAG/upf2Δ (+CHX)"]] <- res_c$`UPF1-FLAG_upf2d_all_IPvsTotal`
+IPvsTotal[["DE572AA-FLAG (+CHX)"]] <- res_c$`DE572AA-FLAG_maj_IPvsTotal`
+IPvsTotal <- lapply(IPvsTotal, prepare_plot)
+
+MinvsMaj <- list()
+MinvsMaj[["FLAG-UPF1 (-CHX)"]] <- res_u1m$`FLAG-UPF1_minus_minvsmaj`
+MinvsMaj[["FLAG-UPF1 (+CHX)"]] <- res_u1p$`FLAG-UPF1_plus_minvsmaj`
+MinvsMaj[["UPF1-FLAG (+CHX)"]] <- res_c$`UPF1-FLAG_minvsmaj`
+MinvsMaj[["UPF1-FLAG/upf2Δ (+CHX)"]] <- res_c$`UPF1-FLAG_upf2d_minvsmaj`
+MinvsMaj[["DE572AA-FLAG (+CHX)"]] <- as.data.frame(matrix(data = NA, nrow = nrow(res_c$`UPF1-FLAG_minvsmaj`), ncol = ncol(res_c$`UPF1-FLAG_minvsmaj`), dimnames = list(c(rownames(res_c$`UPF1-FLAG_minvsmaj`)), c(colnames(res_c$`UPF1-FLAG_minvsmaj`)))))
+MinvsMaj[["DE572AA-FLAG (+CHX)"]]$row <- MinvsMaj[["UPF1-FLAG (+CHX)"]]$row
+MinvsMaj <- lapply(MinvsMaj, prepare_plot)
+
+load("ribosome_occupancy.Rdata")
+ro <- c(ro_n, ro_c)
+
+alldata <- list()
+alldata <- sapply(names(IPvsTotal), function(x) {
+  a <- IPvsTotal[[x]][, c(1, 11, 2:10, 12)]
+  colnames(a)[-c(1:2)] <- paste0("IPvsTotal_", colnames(a)[-c(1:2)])
+  b <- MinvsMaj[[x]][, c(1, 2:10, 12)]
+  colnames(b)[-1] <- paste0("MinvsMaj_", colnames(b)[-1])
+  c <- ro[[x]]
+  colnames(c)[-1] <- paste0("RO_", colnames(c)[-1])
+  df <- left_join(x = a, y = b, by = "row")
+  df <- left_join(x = df, y = c, by = "row")
+  return(df)
+}, USE.NAMES = TRUE, simplify = FALSE)
+
+save(alldata, file = "alldata.Rdata")
+```
+
+## Characteristics of enriched/depleted mRNAs
+
+```{r}
+load("alldata.Rdata")
+toplot <- bind_rows(alldata, .id = "sample")
+
+toplot$IPvsTotal_change <- recode_factor(toplot$IPvsTotal_change, Unchanged = "Unchanged", Enriched = "Enriched in IP", Depleted = "Depleted in IP")
+toplot$MinvsMaj_change <- recode_factor(toplot$MinvsMaj_change, Unchanged = "Baseline", Enriched = "High", Depleted = "Low")
+toplot$sample <- factor(toplot$sample, levels = sort(unique(toplot$sample))[c(4:5, 1, 3, 2)])
+```
+
+### IP vs Total
+```{r}
+A <- ggplot() +
+  geom_point(data = toplot, 
+             aes(y = IPvsTotal_ave_numerator+0.5, x = IPvsTotal_ave_denominator+0.5, color = IPvsTotal_change), alpha = 0.3, size = 0.5) +
+  facet_nested(NMD~sample) +
+  scale_x_log10(labels = trans_format("log10", label_math())) + scale_y_log10(labels = trans_format("log10", label_math())) +
+  scale_color_manual(name = "", values = c("grey70", "orange", "purple")) +
+  xlab("Total (mean normalized counts)") + ylab("IP (mean normalized counts)") +
+  coord_cartesian(xlim = c(10^-0.5, 10^5), ylim = c(10^-0.5, 10^5)) +
+  theme_bw(base_size = 8) + 
+  theme(strip.background = element_blank(), strip.text.x = element_text(face = "italic"), panel.grid = element_blank(),
+        legend.position = "top") +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 1)))
+```
+
+For comparative analyses:
+stat.test from https://www.datanovia.com/en/blog/how-to-add-p-values-to-ggplot-facets/
+```{r}
+xx <- c("UPF1-FLAG (+CHX)", "UPF1-FLAG/upf2Δ (+CHX)", "DE572AA-FLAG (+CHX)")
+comps <- list(c("Unchanged", "Enriched in IP"), c("Enriched in IP", "Depleted in IP"), c("Unchanged", "Depleted in IP"))
+```
+
+#### Ribosome occupancy
+```{r}
+toplot_filter <- toplot[which(!is.na(toplot$RO_log2FoldChange)), ] # 3 mRNAs (YIL082W_mRNA, YLL020C_mRNA, YOR142W-B_pre-mRNA) were removed from each sample because of no reads in RNA-Seq or Total Ribo-Seq. Their IP vs Total analysis are "Unchanged" anyway
+nn <- data.frame(table(sample = toplot_filter$sample, NMD = toplot_filter$NMD, IPvsTotal_change = toplot_filter$IPvsTotal_change))
+```
+```{r}
+stat.test <- toplot_filter[toplot_filter$sample %in% xx, ] %>%
+  group_by(sample, NMD) %>%
+  wilcox_test(RO_log2FoldChange~IPvsTotal_change, comparisons = comps) %>% 
+  adjust_pvalue(method = "fdr") %>% 
+  add_significance()
+stat.test <- stat.test %>% add_xy_position(x = "IPvsTotal_change", step.increase = 0.02)
+steps <- 0.5
+ybase <- 4
+stat.test[stat.test$groups == 'c("Unchanged", "Enriched in IP")', ]$y.position <- ybase
+stat.test[stat.test$groups == 'c("Enriched in IP", "Depleted in IP")', ]$y.position <- ybase + steps
+stat.test[stat.test$groups == 'c("Unchanged", "Depleted in IP")', ]$y.position <- ybase + steps + steps
+```
+```{r}
+B <- ggplot(toplot_filter[toplot_filter$sample %in% xx, ], aes(x = IPvsTotal_change, y = RO_log2FoldChange)) +
+  geom_boxplot(aes(fill = IPvsTotal_change), outlier.color = NA, width = 0.75, size = 0.5) +
+  stat_pvalue_manual(data = stat.test, label = "p.adj.signif", tip.length = 0.005, size = 1.5, vjust = 0.3) +
+  geom_text(data = nn[nn$sample %in% xx, ], aes(x = IPvsTotal_change, y = -8, label = paste0("n = ", Freq)), size = 1.5) +
+  facet_nested(.~sample+NMD, nest_line = TRUE) +
+  scale_fill_manual(name = "", values = c("grey70", "orange", "purple")) +
+  xlab("") + ylab("Ribosome occupancy") +
+  coord_cartesian(ylim = c(-8, 5)) +
+  theme_bw(base_size = 8) + 
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(face = "italic"), legend.position = "top", 
+        panel.grid = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
+```
+
+#### CDS length
+```{r}
+transcriptome <- read.table("transcriptome_v5_mRNA_region_length.txt", header = TRUE)
+toplot <- left_join(toplot, transcriptome[, c("transcript_id", "length", "l_utr5", "l_cds", "l_utr3")], by = c("row" = "transcript_id"))
+toplot[is.na(toplot$l_cds), ]$l_cds <- toplot[is.na(toplot$l_cds), ]$length # transcripts with blank l_cds are mostly transposons, ncRNAs, use full length as CDS length
+```
+```{r}
+stat.test <- toplot[toplot$sample %in% xx, ] %>%
+  group_by(sample, NMD) %>%
+  wilcox_test(l_cds~IPvsTotal_change, comparisons = comps) %>% 
+  adjust_pvalue(method = "fdr") %>% 
+  add_significance()
+stat.test <- stat.test %>% add_xy_position(x = "IPvsTotal_change", step.increase = 0.02)
+steps <- 250
+ybase <- 5600
+stat.test[stat.test$groups == 'c("Unchanged", "Enriched in IP")', ]$y.position <- ybase
+stat.test[stat.test$groups == 'c("Enriched in IP", "Depleted in IP")', ]$y.position <- ybase + steps
+stat.test[stat.test$groups == 'c("Unchanged", "Depleted in IP")', ]$y.position <- ybase + steps + steps
+```
+```{r}
+C <- ggplot(toplot[toplot$sample %in% xx, ], aes(x = IPvsTotal_change, y = l_cds)) +
+  geom_boxplot(aes(fill = IPvsTotal_change), outlier.color = NA, width = 0.75, size = 0.5) +
+  stat_pvalue_manual(data = stat.test, label = "p.adj.signif", tip.length = 0.005, size = 1.5, vjust = 0.3) +
+  geom_text(data = nn[nn$sample %in% xx, ], aes(x = IPvsTotal_change, y = -0.5, label = paste0("n = ", Freq)), size = 1.5) +
+  facet_nested(.~sample+NMD, nest_line = TRUE) +
+  scale_fill_manual(name = "", values = c("grey70", "orange", "purple")) +
+  xlab("") + ylab("CDS length (nt)") +
+  coord_cartesian(ylim = c(0, 6100)) +
+  theme_bw(base_size = 8) + 
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(face = "italic"), legend.position = "none", 
+        panel.grid = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
+```
+
+#### Codon optimality
+```{r}
+opt_df <- read.table("../Codon optimality/transcriptome_v5_codon_optimality_tAI_cds.txt", header = TRUE)
+toplot <- left_join(toplot, opt_df, by = c("row" = "transcript_id"))
+nn <- data.frame(table(sample = toplot$sample, NMD = toplot$NMD, IPvsTotal_change = toplot$IPvsTotal_change))
+```
+```{r}
+stat.test <- toplot[toplot$sample %in% xx, ] %>%
+  group_by(sample, NMD) %>%
+  wilcox_test(tAI_cds~IPvsTotal_change, comparisons = comps) %>% 
+  adjust_pvalue(method = "fdr") %>% 
+  add_significance()
+stat.test <- stat.test %>% add_xy_position(x = "IPvsTotal_change", step.increase = 0.02)
+steps <- 0.01
+ybase <- 0.5
+stat.test[stat.test$groups == 'c("Unchanged", "Enriched in IP")', ]$y.position <- ybase
+stat.test[stat.test$groups == 'c("Enriched in IP", "Depleted in IP")', ]$y.position <- ybase + steps
+stat.test[stat.test$groups == 'c("Unchanged", "Depleted in IP")', ]$y.position <- ybase + steps + steps
+```
+```{r}
+D <- ggplot(toplot[toplot$sample %in% xx, ], aes(x = IPvsTotal_change, y = tAI_cds)) +
+  geom_boxplot(aes(fill = IPvsTotal_change), outlier.color = NA, width = 0.75, size = 0.5) +
+  stat_pvalue_manual(data = stat.test, label = "p.adj.signif", tip.length = 0.005, size = 1.5, vjust = 0.3) +
+  geom_text(data = nn[nn$sample %in% xx, ], aes(x = IPvsTotal_change, y = 0.2, label = paste0("n = ", Freq)), size = 1.5) +
+  facet_nested(.~sample+NMD, nest_line = TRUE) +
+  scale_fill_manual(name = "", values = c("grey70", "orange", "purple")) +
+  xlab("") + ylab("Codon optimality score in CDS") +
+  coord_cartesian(ylim = c(0.2, 0.52)) +
+  theme_bw(base_size = 8) + 
+  theme(strip.background = element_blank(),
+        strip.text.x = element_text(face = "italic"), legend.position = "none", 
+        panel.grid = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
+```
+
+### Combine plots
+```{r}
+library(patchwork)
+p <- A + B + C + D + plot_layout(nrow = 4, ncol = 1, guides = "collect", heights = c(1.5, 1, 1, 1)) +
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 9, face = "bold"), legend.position = "top", plot.tag.position = "topleft")
+```
+```{r}
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+cairo_pdf(filename = "../../Figures/IPvsTotal_characteristics_6.5x10.pdf", family = "Arial", width = 6.5, height = 10) 
+p
+dev.off()
+```

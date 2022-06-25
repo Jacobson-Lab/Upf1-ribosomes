@@ -1,0 +1,150 @@
+---
+title: "Reproducibility of Biological Replicates of RNA-Seq Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reproducibility of Biological Replicates of RNA-Seq Data
+
+Load required functions and packages
+```{r}
+source("functions_sequencing.R")
+library(dplyr)
+library(data.table)
+library(ggplot2)
+library(ggpubr)
+library(ggh4x)
+library(DESeq2)
+```
+
+#### Correlation matrix
+Load data
+```{r}
+rna <- read.csv("../../Processed data/RSEM output/RNAseq_RSEM_FPKM_isoforms.results.csv", row.names = 1)
+cdt <- ccdt(rna)
+```
+
+```{r}
+# Add replicate numbers
+cdt$rep <- c(rep(c(1, 1, 2, 2), times = 2), c(1, 2), rep(c(1, 2, 3), times = 4))
+
+# Reformat strain names
+newnames <- toupper(apply(cdt[, c("strainCHX", "rep")], 1, paste0, collapse = "@"))
+newnames <- gsub("_", "-\n", newnames)
+newnames <- sub("WT@", "WT + EV\n(N)@", newnames)
+newnames <- sub("WTPLUSEV", "WT + EV\n(C)", newnames)
+newnames <- sub("-\nUPF2DEL", "\n/upf2\u0394", newnames)
+newnames <- sub("OE3", "FLAG-\nUPF1\nUPF2/3\nEE", newnames)
+newnames <- sub("@PLUS@", "@+CHX@", newnames)
+newnames <- sub("@MINUS@", "@-CHX@", newnames)
+
+# log-transform RPKM
+tab2 <- log10(rna)
+tab2 <- do.call(data.frame, lapply(tab2, function(x) replace(x, is.infinite(x), NA)))
+colnames(tab2) <- newnames
+
+# correlation
+R_cor <- cor(tab2, method = "pearson", use = "pairwise.complete.obs")
+```
+
+Plot
+```{r}
+R_cor <- reshape2::melt(R_cor)
+R_cor$strain1 <- sub("@.*", "", R_cor$Var1)
+R_cor$CHX1 <- sapply(strsplit(as.character(R_cor$Var1), split = "@"), "[", 2)
+R_cor$rep1 <- sub(".*@", "", R_cor$Var1)
+
+R_cor$strain2 <- sub("@.*", "", R_cor$Var2)
+R_cor$CHX2 <- sapply(strsplit(as.character(R_cor$Var2), split = "@"), "[", 2)
+R_cor$rep2 <- sub(".*@", "", R_cor$Var2)
+R_cor$rep2 <- factor(R_cor$rep2, levels = c("3", "2", "1"))
+
+strain_order <- sort(unique(R_cor$strain1))[c(7, 2, 3, 6, 4, 5, 1)]
+R_cor$strain1 <- factor(R_cor$strain1, levels = strain_order)
+R_cor$strain2 <- factor(R_cor$strain2, levels = strain_order)
+```
+```{r}
+cormat_rna <- ggplot(R_cor) +
+  geom_tile(aes(x = rep1, y = rep2, fill = value), height = 0.9, width = 0.9, color = NA) +
+  scale_fill_distiller(name = "Pearson's r  ", palette = "YlOrRd", direction = 1, limits = c(0.85, 1)) +
+  facet_nested(strain2+CHX2~strain1+CHX1, scales = "free", space = "free", nest_line = TRUE, strip = strip_nested(size = "variable")) +
+  xlab("") + ylab("") +
+  theme_bw(base_size = 8) + 
+  theme(panel.grid = element_blank(), panel.spacing = unit(0.1, "cm"), panel.border = element_rect(size = 0.2),
+        strip.background = element_blank(), strip.text = element_text(face = "italic"), 
+        legend.position = "top", legend.key.height = unit(0.25, "cm"), aspect.ratio = 1)
+```
+
+#### PCA
+Load data
+```{r}
+rna <- read.csv("../../Processed data/RSEM output/RNAseq_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+```
+
+```{r}
+# countData
+tab <- round(x = rna, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+# colData
+cdt <- ccdt(tab)
+```
+
+Generate DESeq2 object
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~lib)
+DGE <- DESeq(dds)
+vsd <- vst(DGE, blind = FALSE)
+pcaData <- plotPCA(vsd, intgroup = c("strain", "CHX"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"), digits = 1)
+```
+
+Plot
+```{r}
+pcaData$strain <- recode_factor(pcaData$strain, WT = "WT + EV (N)", FLAG_Upf1 = "FLAG-UPF1", OE3 = "FLAG-UPF1 UPF2/UPF3 EE", WTplusEV = "WT + EV (C)", Upf1_FLAG = "UPF1-FLAG", `Upf1_FLAG_upf2del` = "UPF1-FLAG/upf2\u0394", DE572AA_FLAG = "DE572AA-FLAG")
+pcaData$rep <- c(rep(c(1, 1, 2, 2), times = 2), c(1, 2), rep(c(1, 2, 3), times = 4))
+pcaData$CHX <- recode_factor(pcaData$CHX, plus = "+CHX", minus = "-CHX")
+```
+```{r}
+pall <- RColorBrewer::brewer.pal(n = 12, "Paired")
+#scales::show_col(pall)
+pca_rna <- ggplot(pcaData, aes(x = PC1, y = PC2, color = strain)) +
+  geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
+  geom_vline(xintercept = 0, linetype = "dashed", size = 0.5) +
+  geom_point(aes(shape = CHX), alpha = 1, size = 1, stroke = 0.5) +
+  geom_text(aes(label = rep), size = 1.5, nudge_y = 0.5, show.legend = FALSE) +
+  xlab(paste0("PCA: ", percentVar[1], "% variance")) + ylab(paste0("PCA: ", percentVar[2], "% variance")) +
+  scale_shape_manual(name = "Library", values = c(`-CHX` = 5, `+CHX` = 9)) +
+  scale_color_manual(values = c("grey20", "#E31A1C", "#6A3D9A", # N-term
+                                "grey60", "#FB9A99", "#B2DF8A", "#A6CEE3")) + # C-term
+  coord_fixed() +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "bottom", legend.box = "vertical", legend.margin = unit(0.5, "cm"), legend.box.just = "left", legend.key.height = unit(0.1, "cm")) +
+  guides(color = guide_legend(title = "Strain", label.theme = element_text(face = "italic", size = 6), byrow = TRUE, 
+                              order = 1, nrow = 3),
+         shape = guide_legend(order = 2, nrow = 1))
+```
+
+#### Combine plots
+```{r}
+library(patchwork)
+p <- (cormat_rna / pca_rna) + plot_layout(nrow = 2, ncol = 1, heights = c(0.7, 0.3)) +
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 9, face = "bold"), plot.tag.position = "topleft")
+```
+```{r}
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+cairo_pdf(filename = "../../Figures/Replicate_reproducibility_RNAseq_6.5x10.pdf", family = "Arial", width = 6.5, height = 10) 
+p
+dev.off()
+```
+

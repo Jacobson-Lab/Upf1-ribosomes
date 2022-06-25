@@ -1,0 +1,169 @@
+---
+title: "A-site codon occupancy analyses"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# A-site codon occupancy analysis
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(ggh4x)
+library(scales)
+library(ggpubr)
+library(reshape2)
+```
+
+## Mean relative occupancy
+
+Load and prepare data
+```{r}
+df <- read.table("A-site_codon_occupancy_window30_bycodon_allsamples.txt", header = TRUE)
+# Translate codon into amino acid (aa)
+df$aa <- unlist(lapply((lapply(df[, "codon"], seqinr::s2c)), seqinr::translate))
+# Convert T to U (to represent mRNA)
+df$codon <- gsub("T", "U", df$codon)
+# Combine codon and aa
+df$codon_aa <- paste0(df$codon, " (", df$aa, ")")
+# Take out the last codon position because it is not triplet 
+df <- df[which(df$Distance != range(df$Distance)[2]), ] 
+
+# Rename and relevel factors
+df$strain <- recode_factor(df$strain, WT_CHXm = "WT + EV (N) (-CHX)", `FLAG-Upf1_CHXm` = "FLAG-UPF1 (-CHX)", 
+                           WT_CHXp = "WT + EV (N) (+CHX)", `FLAG-Upf1_CHXp` = "FLAG-UPF1 (+CHX)", 
+                           WT_EV = "WT + EV (C)", `Upf1-FLAG` = "UPF1-FLAG", 
+                           `Upf1-FLAG-upf2del` = "UPF1-FLAG/upf2Δ", `DE572AA-FLAG` = "DE572AA-FLAG")
+df$size <- factor(df$size, levels = c("S", "M", "L"))
+
+aa_levs <- c("K", "N", "T", "I", "M", "Q", "H", "P", "R", "L", "E", "D", "A", "G", "V", "Y", "S", "C", "W", "F", "*")
+df$aa <- factor(df$aa, levels = aa_levs)
+```
+
+Define samples to be plotted together
+```{r}
+forplot <- c("WT + EV (C)", "UPF1-FLAG", "UPF1-FLAG/upf2Δ", "DE572AA-FLAG") # C-terminal FLAG
+#forplot <- c("WT + EV (N) (-CHX)", "FLAG-UPF1 (-CHX)", "WT + EV (N) (+CHX)", "FLAG-UPF1 (+CHX)") # N-terminal FLAG
+```
+
+Heatmap
+```{r}
+# Plot only major footprints
+df_filter <- df[which((df$size == "S" & df$CHX == "-CHX") | (df$size == "M" & df$CHX == "+CHX")), ]
+
+A <- ggplot(df_filter[df_filter$strain %in% forplot & df_filter$Distance %in% seq(-10, 10, 1), ], 
+            aes(x = Distance, y = codon_aa, fill = mean_occupancy)) + 
+  geom_tile() +
+  facet_nested(aa~strain+ribo, scales = "free_y", space = "free_y", strip = strip_nested(size = "variable"), nest_line = TRUE) + 
+  scale_y_discrete(limits = rev) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_distiller(name = "Mean relative occupancy  ", palette = "RdBu", direction = -1, limits = c(0, 2), oob = squish,
+                       labels = c("0.0", "0.5", "1.0", "1.5", "> 2.0")) +
+  xlab("Codon distance to A-site") + ylab("") +
+  theme_bw(base_size = 8) +
+  theme(panel.grid = element_blank(), panel.spacing.y = unit(0, "in"), #panel.border = element_blank(),
+        legend.position = "top", plot.title = element_text(hjust = 0.5, face = "italic"),
+        strip.background = element_blank(),
+        strip.text = element_text(angle = 0, face = "italic"), strip.text.y = element_blank()) +
+  guides(fill = guide_colorbar(barheight = 0.5))
+```
+
+## log2 (IP / Total) Mean relative occupancy
+
+Calculate log2(IP / Total) 
+```{r}
+# Only do major footprints, filter out WT
+df2 <- df[which((df$size == "S" & df$CHX == "-CHX") | (df$size == "M" & df$CHX == "+CHX")), ]
+df2 <- df2[which(!grepl("WT", df2$strain)), ]
+# Calculate log2(IP / Total) 
+df2 <- dcast(df2, CHX + strain + size + Distance + codon + aa + codon_aa ~ ribo, value.var = "mean_occupancy")
+df2$IPvsTotal <- df2$IP / df2$Total
+```
+
+Heatmap
+```{r}
+B <- ggplot(df2[df2$Distance %in% seq(-10, 10, 1) & df2$strain %in% forplot, ], 
+       aes(x = Distance, fill = log2(IPvsTotal), y = codon_aa)) +
+  geom_tile() +
+  facet_nested(aa~strain+size, scales = "free_y", space = "free_y", strip = strip_nested(size = "variable"), nest_line = TRUE) +
+  scale_fill_gradient2(name = expression("log"[2]*"(IP / Total)  "), low = "purple", mid = "white", high = "orange", midpoint = 0, 
+                       limits = c(-1, 1), oob = squish, 
+                       breaks = seq(-1, 1, length = 5), labels = c("< -1.0", "-0.5", "0.0", "0.5", "> 1.0")) +
+  scale_y_discrete(limits = rev) +
+  scale_x_continuous(expand = c(0, 0)) +
+  xlab("Codon distance to A-site") + ylab("") +
+  theme_bw(base_size = 8) +
+  theme(panel.grid = element_blank(), legend.position = "top", panel.spacing.y = unit(0, "in"),
+        strip.background = element_blank(), strip.text = element_text(face = "italic"), strip.text.y = element_blank()) +
+  guides(fill = guide_colorbar(barheight = 0.5))
+```
+
+Combine plots
+```{r}
+library(patchwork)
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+
+p <- (A + B) + 
+  plot_layout(nrow = 1, widths = c(7, 3), guides = "keep") +
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 9, face = "bold"), plot.tag.position = "topleft")
+
+cairo_pdf(filename = "A-site_mean_relative_occupancy_scwrm_11x7_landscape.pdf", family = "Arial", width = 11, height = 7) 
+p
+dev.off()
+```
+
+## Correlation between codon optimality and mean relative occupancy
+
+```{r}
+# Codon optimality (tAI)
+scw <- read.table("../Codon optimality/codon_optimality_w.txt", header = TRUE)
+scw$aa <- unlist(lapply((lapply(scw[, "codons"], seqinr::s2c)), seqinr::translate))
+scw$codons <- gsub("T", "U", scw$codons)
+scw$codon_aa <- paste0(scw$codons, " (", scw$aa, ")")
+colnames(scw)[2] <- "tAI"
+
+# Mean relative occupancy at position 0 (when codon of interest is in the ribosomal A-site)
+df_A <- df[which(df$Distance == 0), ]
+df_A <- left_join(df_A, scw[, c("codon_aa", "tAI")], by = "codon_aa")
+
+# Calculate correlation
+cols <- c("strain", "CHX", "ribo", "size")
+df_A_cor <- df_A %>%
+  group_by(across(all_of(cols))) %>%
+  summarize(cor = cor(mean_occupancy, 1/tAI, method = "spearman", use = "pairwise.complete.obs"))
+df_A_cor$ribo <- factor(df_A_cor$ribo, levels = c("Total", "IP"))
+df_A_cor$strain <- sub(" \\(-CHX)", "", df_A_cor$strain)
+df_A_cor$strain <- sub(" \\(\\+CHX)", "", df_A_cor$strain)
+df_A_cor$strain <- factor(df_A_cor$strain, levels = sort(unique(df_A_cor$strain))[c(6, 2, 5, 3, 4, 1)])
+```
+
+Plot
+```{r}
+tai_0 <- ggplot(df_A_cor, aes(x = strain, y = cor, color = ribo, shape = CHX)) +
+  geom_point(size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_grid(.~size, scales = "free_x", space = "free") +
+  scale_color_manual(name = "", values = c(Total = "purple", IP = "orange")) +
+  scale_shape_manual(name = "", values = c(`-CHX` = 1, `+CHX` = 10)) +
+  ylab("Spearman's rank correlation of\n A-site mean relative occupancy\n(position 0) with 1 / tAI") + xlab("") +
+  coord_cartesian(ylim = c(-0.4, 0.4)) +
+  theme_bw(base_size = 8) +
+  theme(panel.grid = element_blank(), strip.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "top")
+
+cairo_pdf(filename = "A-site_codon_occupancy-vs-tAI_spearman_4x3.pdf", family = "Arial", width = 4, height = 3) 
+tai_0
+dev.off()
+```

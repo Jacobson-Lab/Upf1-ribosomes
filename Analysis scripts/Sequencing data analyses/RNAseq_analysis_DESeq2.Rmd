@@ -1,0 +1,166 @@
+---
+title: "Differential expression analysis of RNA-Seq data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Differential expression relative to respective WT + EV
+
+```{r}
+library(DESeq2)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(ggh4x)
+library(ggrepel)
+library(scales)
+source("functions_sequencing.R")
+nmd_up <- scan("nmd_up_907.txt", character())
+```
+
+Prepare data
+```{r}
+# countData
+tab <- read.csv("../../Processed data/RSEM output/RNAseq_RSEM_expected_count_isoforms.results.csv", row.names = 1)
+tab <- round(x = tab, digits = 0)
+tab <- tab[rowSums(tab) > 0, ]
+
+# colData
+cdt <- ccdt(count_tab = tab)
+```
+
+Create DESeq object
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = tab, colData = cdt, design = ~strainCHX)
+dds$strainCHX <- relevel(dds$strainCHX, ref = "WT@plus")
+DGE <- DESeq(dds)
+```
+
+results
+```{r}
+resultsNames(DGE)
+res_t <- list()
+res_t[["FLAG-UPF1_m_WT_m"]] <- results(DGE, contrast = c("strainCHX", "FLAG_Upf1@minus", "WT@minus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+res_t[["FLAG-UPF1_p_WT_p"]] <- results(DGE, contrast = c("strainCHX", "FLAG_Upf1@plus", "WT@plus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+res_t[["TripleOE_p_WT_p"]] <- results(DGE, contrast = c("strainCHX", "OE3@plus", "WT@plus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+res_t[["UPF1-FLAG_p_WTEV_p"]] <- results(DGE, contrast = c("strainCHX", "Upf1_FLAG@plus", "WTplusEV@plus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+res_t[["UPF1-FLAG_upf2d_p_WTEV_p"]] <- results(DGE, contrast = c("strainCHX", "Upf1_FLAG_upf2del@plus", "WTplusEV@plus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+res_t[["DE572AA-FLAG_p_WTEV_p"]] <- results(DGE, contrast = c("strainCHX", "DE572AA_FLAG@plus", "WTplusEV@plus"), pAdjustMethod = "fdr", tidy = TRUE, independentFiltering = TRUE, alpha = 0.01)
+```
+
+```{r}
+toplot <- bind_rows(res_t, .id = "sample")
+toplot$NMD <- ifelse(test = toplot$row %in% nmd_up, yes = "NMD substrates", no = "Non-NMD substrates")
+toplot$sig <- ifelse(test = toplot$padj < 0.01, yes = "p < 0.01", no = "ns")
+toplot$sig <- factor(toplot$sig, levels = c("p < 0.01", "ns"))
+
+#toplot$repel <- NA
+#toplot[toplot$row == "YMR080C_mRNA", ]$repel <- "UPF1"
+#toplot[toplot$row == "YHR077C_mRNA", ]$repel <- "UPF2"
+#toplot[toplot$row == "YGR072W_mRNA", ]$repel <- "UPF3"
+
+toplot$pair2 <- sub("_WT.*", "", toplot$sample)
+toplot$pair2 <- gsub("_p", "\n(+CHX)", toplot$pair2)
+toplot$pair2 <- gsub("_m", "\n(-CHX)", toplot$pair2)
+toplot$pair2 <- sub("_upf2d", "/upf2Δ", toplot$pair2)
+toplot$pair2 <- sub("TripleOE", "FLAG-UPF1 UPF2/3 EE", toplot$pair2)
+toplot$pair2 <- factor(toplot$pair2, levels = c("FLAG-UPF1\n(-CHX)", "FLAG-UPF1\n(+CHX)", "FLAG-UPF1 UPF2/3 EE\n(+CHX)", "UPF1-FLAG\n(+CHX)", "UPF1-FLAG/upf2Δ\n(+CHX)", "DE572AA-FLAG\n(+CHX)"))
+
+save(toplot, file = "Upf1only_RNASeq_strain_relative_to_respective_WT.Rdata")
+```
+
+### Differential expression data downloaded from Celik et al. 2017
+
+```{r}
+s3 <- readxl::read_xlsx("../../Processed data/Celik_RNA_2017_Supplemental_Table_S3.xlsx", 
+                        col_types = c("text", rep("numeric", times = 42)))
+s3_sig <- s3[which(s3$padj_WT_upf1 < 0.01 & s3$padj_WT_upf2 < 0.01 & s3$padj_WT_upf3 < 0.01), ]
+# NMD substrates are mRNAs that were up-regulated in all three upf deletion strains:
+nmd <- s3_sig[which(s3_sig$log2FoldChange_WT_upf1 > 0 & s3_sig$log2FoldChange_WT_upf2 > 0 & s3_sig$log2FoldChange_WT_upf3 > 0), ]
+s3$NMD <- ifelse(test = s3$id %in% nmd$id, yes = "NMD substrates", no = "Non-NMD substrates")
+
+s3_list <- list()
+s3_list[["upf1d"]] <- s3[, c("id", "baseMean_WT_upf1", "log2FoldChange_WT_upf1", "pval_WT_upf1", "padj_WT_upf1", "NMD")]
+s3_list[["upf2d"]] <- s3[, c("id", "baseMean_WT_upf2", "log2FoldChange_WT_upf2", "pval_WT_upf2", "padj_WT_upf2", "NMD")]
+s3_list[["upf3d"]] <- s3[, c("id", "baseMean_WT_upf3", "log2FoldChange_WT_upf3", "pval_WT_upf3", "padj_WT_upf3", "NMD")]
+for (i in 1:3) {
+  colnames(s3_list[[i]]) <- c("row", "baseMean", "log2FoldChange", "pvalue", "padj", "NMD")
+}
+s3_df <- bind_rows(s3_list, .id = "sample")
+s3_df$sig <- ifelse(test = s3_df$padj < 0.01, yes = "p < 0.01", no = "ns")
+s3_df$pair2 <- sub("d", "Δ\n(-CHX)", s3_df$sample)
+save(s3_df, file = "upfd_RNAseq.RData")
+```
+
+## Plot
+```{r}
+load("Upf1only_RNASeq_strain_relative_to_respective_WT.Rdata")
+load("upfd_RNAseq.RData")
+toplot$lfcSE <- NULL
+toplot$stat <- NULL
+df <- rbind(toplot, s3_df)
+df$pair2 <- factor(df$pair2, levels = c("UPF1-FLAG\n(+CHX)", "UPF1-FLAG/upf2Δ\n(+CHX)", "DE572AA-FLAG\n(+CHX)", # second row
+                                        "FLAG-UPF1\n(+CHX)", "FLAG-UPF1 UPF2/3 EE\n(+CHX)", # second row
+                                        "upf1Δ\n(-CHX)", "upf2Δ\n(-CHX)", "upf3Δ\n(-CHX)", "FLAG-UPF1\n(-CHX)")) # first row
+```
+
+Plot only NMD substrates
+```{r}
+df_filter <- df[which(df$NMD == "NMD substrates"), ] # only plot NMD substrates
+
+# Y-axis limit. Change shape type for points outside of range.
+lim = 10
+df_filter$log2FoldChange_lim <- df_filter$log2FoldChange
+df_filter[which(is.na(df_filter$log2FoldChange_lim)), ]$log2FoldChange_lim <- -lim
+df_filter[df_filter$log2FoldChange_lim >= lim, ]$log2FoldChange_lim <- lim
+df_filter[df_filter$log2FoldChange_lim <= -lim, ]$log2FoldChange_lim <- -lim
+
+df_filter$outsidelim <- "No"
+df_filter[df_filter$log2FoldChange_lim >= lim, ]$outsidelim <- "Above"
+df_filter[df_filter$log2FoldChange_lim <= -lim, ]$outsidelim <- "Below"
+
+df_filter$pair2 <- factor(df_filter$pair2, levels = c("UPF1-FLAG\n(+CHX)", "UPF1-FLAG/upf2Δ\n(+CHX)", "DE572AA-FLAG\n(+CHX)", # 2nd row
+                                                      "FLAG-UPF1\n(+CHX)", "FLAG-UPF1 UPF2/3 EE\n(+CHX)", # 2nd row
+                                                      "upf1Δ\n(-CHX)", "upf2Δ\n(-CHX)", "upf3Δ\n(-CHX)", "FLAG-UPF1\n(-CHX)")) # 1st row
+```
+```{r}
+nn <- data.frame(table(pair2 = df_filter$pair2, sig = df_filter$sig))
+nn$xn <- rep(c(10^-1, 10^3.5), each = 9)
+nn$yn <- -lim-0.5
+
+p <- ggplot(df_filter[which(df_filter$sig == "p < 0.01"), ]) +
+  geom_point(aes(x = baseMean, y = log2FoldChange_lim, color = sig, shape = outsidelim), alpha = 0.25, size = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text(data = nn[which(nn$sig == "p < 0.01"), ], aes(x = 10^1, y = yn, label = paste0("n = ", Freq), color = sig), size = 2, hjust = 0, show.legend = FALSE) +
+  facet_wrap(~pair2, nrow = 2, as.table = FALSE) +
+  scale_x_log10(labels = trans_format("log10", label_math())) +
+  scale_color_manual(name = "", values = c("darkblue", "grey40")) + # color by sig
+  scale_shape_manual(name = "", values = c(Above = 2, Below = 6, No = 1)) + # For plotting out-of-bound data points
+  xlab("Mean of normalized counts") + ylab(expression(paste("log"[2]*" fold change relative to respective ", italic("WT"), " (+ EV)"))) +
+  coord_cartesian(ylim = c(-10.5, 10)) +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "none", panel.grid = element_blank(), strip.placement = "outside",
+        strip.background = element_blank(), strip.text = element_text(face = "italic")) +
+  guides(color = guide_legend(override.aes = list(alpha = 0.5, size = 2)),
+         shape = "none")
+```
+
+Export plot
+```{r}
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+cairo_pdf(filename = "../../Figures/RNASeq_MAplot_strain-vs-WT_NMDsubstrates_onlysig_limit10.pdf", family = "Arial", width = 6, height = 4) 
+p
+dev.off()
+```
+
