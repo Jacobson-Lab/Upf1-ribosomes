@@ -63,7 +63,7 @@ Preprint: [pending]
 
 ### Codon optimality
 * Codon optimality value for each coding sequence is calculated based on https://github.com/mariodosreis/tai
-* _**Analysis scripts/Codon optimality/**codon_optimality_tAI_CDS.R_ calculates codon optimality scores used for Figure 5D
+* _**Analysis scripts/Codon optimality**/codon_optimality_tAI_CDS.R_ calculates codon optimality scores used for Figure 5D
 
 ### A-site codon occupancy
 * Analysis scripts and required files for processing are in _**Analysis scripts/A-site codon occupancy/**_
