@@ -1,5 +1,5 @@
 # ---------------------------------------
-# Figure S8
+# Figure 7-figure supplement 1
 #   A-B: Fractions of P-site region
 #   C-D: P-site reading frame fractions
 #   Calculated with only relevant footprint lengths with corrected/verified P-site offsets (20-23nt, 27-32nt, 37-43nt)
@@ -13,14 +13,14 @@ library(ggpubr)
 # A-B -----------------------------------
 # Prepare Data
   # N-terminal data
-dfa <- read.table("../data/Data_FigureS8a_Nterm.txt", header = TRUE, sep = "\t")
+dfa <- read.table("../data/Data_Figure7-S1a_Nterm.txt", header = TRUE, sep = "\t")
 dfa$strain <- recode(dfa$strain, `FLAG-UPF1 UPF2/3 EE` = "FLAG-UPF1\nUPF2/3 EE")
 dfa$strain <- factor(dfa$strain, levels = sort(unique(dfa$strain))[c(3, 1, 2)])
 dfa$psite_region <- recode_factor(dfa$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
 dfa$riborep <- sub("_.*_", " rep ", dfa$sample)
 
   # C-terminal data
-dfb <- read.table("../data/Data_FigureS8b_Cterm.txt", header = TRUE, sep = "\t")
+dfb <- read.table("../data/Data_Figure7-S1b_Cterm.txt", header = TRUE, sep = "\t")
 dfb$strain <- factor(dfb$strain, levels = sort(unique(dfb$strain))[c(4, 2, 3, 1)])
 dfb$psite_region <- recode_factor(dfb$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
 dfb$riborep <- sub("_.*_", " rep ", dfb$sample)
@@ -43,14 +43,14 @@ pb <- ggplot(data = dfb) +
 # C-D -----------------------------------
 # Prepare Data
   # N-terminal data
-dfc <- read.table("../data/Data_FigureS8c_Nterm.txt", header = TRUE, sep = "\t")
+dfc <- read.table("../data/Data_Figure7-S1c_Nterm.txt", header = TRUE, sep = "\t")
 dfc$strain <- recode(dfc$strain, `FLAG-UPF1 UPF2/3 EE` = "FLAG-UPF1\nUPF2/3 EE")
 dfc$strain <- factor(dfc$strain, levels = sort(unique(dfc$strain))[c(3, 1, 2)])
 dfc$psite_region <- recode_factor(dfc$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
 dfc$riborep <- sub("_.*_", " rep ", dfc$sample)
 
   # C-terminal data
-dfd <- read.table("../data/Data_FigureS8d_Cterm.txt", header = TRUE, sep = "\t")
+dfd <- read.table("../data/Data_Figure7-S1d_Cterm.txt", header = TRUE, sep = "\t")
 dfd$strain <- factor(dfd$strain, levels = sort(unique(dfd$strain))[c(4, 2, 3, 1)])
 dfd$psite_region <- recode_factor(dfd$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
 dfd$riborep <- sub("_.*_", " rep ", dfd$sample)
