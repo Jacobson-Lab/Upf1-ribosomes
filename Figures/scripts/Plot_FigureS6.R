@@ -1,5 +1,5 @@
 # ---------------------------------------
-# Figure 4-figure supplement 1 -- Metagene bin (4 bins) across normalized CDS for individual transcript
+# Figure S6 -- Metagene bin (4 bins) across normalized CDS for individual transcript
 # ---------------------------------------
 
 library(dplyr)
@@ -7,7 +7,7 @@ library(ggplot2)
 library(ggh4x)
 
 # Prepare data
-Nterm_bin4 <- read.table(file = "../data/Data_Figure4-S1_Nterm_bin4.txt", header = TRUE, sep = "\t")
+Nterm_bin4 <- read.table(file = "../data/Data_FigureS6_Nterm_bin4.txt", header = TRUE, sep = "\t")
 Nterm_bin4$strain <- factor(Nterm_bin4$strain, levels = c("WT + EV", "FLAG-UPF1"))
 Nterm_bin4$bin <- factor(Nterm_bin4$bin, levels = c("0-25", "25-50", "50-75", "75-100"))
 Nterm_bin4$size <- factor(Nterm_bin4$size, levels = c("S", "M", "L"))
@@ -19,7 +19,7 @@ Nterm_bin4_diff <- reshape2::dcast(Nterm_bin4, CHX + strain + strain_CHX + size 
 Nterm_bin4_diff$diff <- Nterm_bin4_diff$IP - Nterm_bin4_diff$Total
 Nterm_bin4_diff <- Nterm_bin4_diff[complete.cases(Nterm_bin4_diff), ]
 
-Cterm_bin4 <- read.table(file = "../data/Data_Figure4-S1_Cterm_bin4.txt", header = TRUE, sep = "\t")
+Cterm_bin4 <- read.table(file = "../data/Data_FigureS6_Cterm_bin4.txt", header = TRUE, sep = "\t")
 Cterm_bin4$strain <- factor(Cterm_bin4$strain, levels = c("WT + EV", "UPF1-FLAG", "UPF1-FLAG/upf2Δ", "DE572AA-FLAG"))
 Cterm_bin4$bin <- factor(Cterm_bin4$bin, levels = c("0-25", "25-50", "50-75", "75-100"))
 Cterm_bin4$size <- factor(Cterm_bin4$size, levels = c("S", "M", "L"))

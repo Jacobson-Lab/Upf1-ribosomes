@@ -1,5 +1,5 @@
 # ---------------------------------------
-# Figure 2-figure supplement 4 -- Metagene plot relative to start or stop codons
+# Figure S5 -- Metagene plot relative to start or stop codons
 # ---------------------------------------
 
 library(data.table)
@@ -10,13 +10,13 @@ library(ggpubr)
 
 # Prepare Data
   # N-terminal data
-dfn <- read.table("../data/Data_Figure2-S4_Nterm.txt", header = TRUE, sep = "\t")
+dfn <- read.table("../data/Data_FigureS5_Nterm.txt", header = TRUE, sep = "\t")
 dfn$strain <- factor(dfn$strain, levels = sort(unique(dfn$strain))[c(2, 1)])
 dfn$size <- factor(dfn$size, levels = c("M", "S", "L")) # specify order of plotting
 ylimit = 0.5
 
   # C-terminal data
-dfc <- read.table("../data/Data_Figure2-S4_Cterm.txt", header = TRUE, sep = "\t")
+dfc <- read.table("../data/Data_FigureS5_Cterm.txt", header = TRUE, sep = "\t")
 dfc$strain <- factor(dfc$strain, levels = sort(unique(dfc$strain))[c(4, 2, 3, 1)])
 dfc$size <- factor(dfc$size, levels = c("S", "M", "L")) # specify order of plotting
 ylimit = 0.6

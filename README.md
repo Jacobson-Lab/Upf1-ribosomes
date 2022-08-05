@@ -26,10 +26,10 @@ Preprint: [pending]
 ### Analyses of changes in transcript abundance using DESeq2
 * Analysis scripts are in _**Analysis scripts/Sequencing data analyses**_
 * Differential expression (RNA-Seq) between yeast strains
-  * _RNAseq_cormatrix_PCA.Rmd_ shows reprodicibility between replicates and produces Figure 2-figure supplement 3.
-  * _RNAseq_analysis_DESeq2.Rmd_ performs differential expression analysis and produces Figure 2-figure supplement 1.
+  * _RNAseq_cormatrix_PCA.Rmd_ shows reprodicibility between replicates and produces Figure S10.
+  * _RNAseq_analysis_DESeq2.Rmd_ performs differential expression analysis and produces Figure S3.
 * IP vs Total ribosomes (Ribo-Seq)
-  * _Riboseq_cormatrix_PCA.Rmd_ shows reprodicibility between replicates and produces Figure 2-figure supplement 2.
+  * _Riboseq_cormatrix_PCA.Rmd_ shows reprodicibility between replicates and produces Figure S9.
   * _Riboseq_analysis_DESeq2.Rmd_ performs differential expression analysis, comparative analysis, and produces Figure 5.
 * Ribosome occupancy (Total Ribo-Seq / RNA-Seq)
 	 * _RNA-vs-RiboTotal.Rmd_ produces ribosome occupancy data used for Figure 5B.
@@ -49,15 +49,15 @@ Preprint: [pending]
 		* Figure 4
 	* Individual gene:
 		* _binning2.R_
-		* Figure 4-figure supplement 1
+		* Figure S6
 * Ribo-Seq diagnostic
   * 3-nucleotide periodicity:
     * Calculated by riboWaltz's `metaprofile_psite` function.
-    * Figure 2-figure supplement 4
+    * Figure S5
   * Footprint's P-sites 
   	* _psite_region_frame_fraction.R_
-  	* Fraction in mRNA regions: Figure 7-figure supplement 1 A-B, Figure 7A
-  	* Fraction of footprint's reading frames in an mRNA region: Figure 7-figure supplement 1 C-D, Figure 7B
+  	* Fraction in mRNA regions: Figure S8 A-B, Figure 7A
+  	* Fraction of footprint's reading frames in an mRNA region: Figure S8 C-D, Figure 7B
 * Unless otherwise indicated/shown, the output table of replicate libraries were averaged. 
 * The results and scripts for plotting them are available in _**Figures**/data_ and _**Figures**/scripts_, respectively.
 
@@ -74,4 +74,4 @@ Preprint: [pending]
 	* _automate_codon_window_count_by_codonpos_from_rpl.sh_ automates steps 2 and 3 for multiple codons in a given codon list (such as codons_list.txt, which contains all 64 codons)
 	* _automate_automate_codon_window_count_by_codonpos_from_rpl.sh_ submits the above script as multiple jobs to process multiple samples in parallel.
 	* Results of all samples are combined and provided as A-site_codon_occupancy_window30_bycodon_allsamples.txt.
-* _codon_occupancy_analysis.Rmd_ further analyzes the results, plots Figure 6 and Figure 6-figure supplement 1.
+* _codon_occupancy_analysis.Rmd_ further analyzes the results, plots Figure 6 and Figure S7.
