@@ -114,7 +114,7 @@ save(SP_Cterm, SP_Nterm, SP_OE3, SP_His, file = "Mass_spec_SP_all.Rdata")
 ## Plots
 
 ### Volcano plot
-
+of IP iBAQs vs. Total IBAQs, with p-value
 ```{r}
 load("Mass_spec_VP_all.Rdata")
 res_df <- bind_rows(list(VP_Cterm, VP_Nterm, VP_OE3))
@@ -163,7 +163,7 @@ pvolcano <- ggplot() +
 ```
 
 ### Scatter plot
-
+of Total iBAQs vs. IP iBAQs
 ```{r}
 load("Mass_spec_SP_all.Rdata")
 dfs <- bind_rows(list(SP_Cterm, SP_Nterm, SP_OE3, SP_His))
@@ -197,7 +197,7 @@ pscatter <- ggplot() +
              show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0, box.padding = 0.2, segment.size = 0.2, hjust = 0.5, 
              direction = "both", point.padding = 0, label.padding = 0.1) +
   facet_wrap(~sample, ncol = 4) +
-  scale_color_manual(name = "", #limits = c("Upf1", "Upf2", "Upf3", "Ribosomal proteins", "Other"),
+  scale_color_manual(name = "", #limits = c("Upf1", "Upf2", "Upf3", "Ribosomal protein", "Other"),
                      values = c(Upf1 = "red", Upf2 = "darkorange", Upf3 = "darkgreen",`Ribosomal protein` = "dodgerblue", 
                                 `Translation initiation factor` = "darkblue", `Translation elongation factor` = "darkviolet",
                                 `Translation termination factor` = "limegreen", `mRNA decay factor` = "brown", 
@@ -211,7 +211,7 @@ pscatter <- ggplot() +
          alpha = guide_legend(override.aes = list(alpha = 1)))
 ```
 
-### Combine plots
+### Combine scatter and volcano plots
 
 ```{r}
 library(patchwork)
@@ -236,6 +236,98 @@ cairo_pdf(filename = "../../Figures/Mass_spec_scatter_volcano_7x9.pdf", family =
 psv
 dev.off()
 ```
+
+
+### Bar plot
+of top 100 (or other specified number) iBAQs in each sample's Total and IP
+```{r}
+load("Mass_spec_SP_all.Rdata")
+dfs <- bind_rows(list(SP_Cterm, SP_Nterm, SP_OE3, SP_His))
+
+tops <- function(df, n = 100, value_column = "Total") {
+  colnames(df)[which(colnames(df) == value_column)] <- "value"
+  df <- df[, c("sample", "Protein", "value")]
+  df_list <- split(df, f = df$sample)
+  top_list <- list()
+  for(i in 1:length(df_list)) {
+    top_list[[i]] <- df_list[[i]][order(df_list[[i]]$value, decreasing = TRUE), ]
+    top_list[[i]] <- top_list[[i]][1:n, ]
+    top_list[[i]]$Protein <- factor(top_list[[i]]$Protein, levels = top_list[[i]]$Protein[order(top_list[[i]]$value, decreasing = TRUE)])
+    top_list[[i]]$plot_order <- c(seq(1:n))
+    top_list[[i]]$ribosome <- value_column
+  }
+  names(top_list) <- names(df_list)
+  top_df <- bind_rows(top_list, .id = "sample")
+  return(top_df)
+}
+
+tops100 <- rbind(tops(df = dfs, n = 100, value_column = "Total"), tops(df = dfs, n = 100, value_column = "IP"))
+tops100 <- label_protein(tops100) # Specify protein groups and proteins to be labeled
+tops100$sample <- recode_factor(tops100$sample, `FLAG-UPF1 (-CHX)` = "FLAG-UPF1 (-CHX)", `FLAG-UPF1 (+CHX)` = "FLAG-UPF1 (+CHX)",
+                                `FLAG-UPF1 UPF2/3 EE` = "FLAG-UPF1 UPF2/3 EE (+CHX)", `6XHis-UPF1` = "6XHis-UPF1 (+CHX)",
+                                `UPF1-FLAG` = "UPF1-FLAG (+CHX)", 
+                                `UPF1-FLAG/upf2Δ` = "UPF1-FLAG/upf2Δ (+CHX)", `DE572AA-FLAG` = "DE572AA-FLAG (+CHX)")
+tops100$ribosome <- factor(tops100$ribosome, levels = c("Total", "IP"))
+```
+```{r}
+# https://community.rstudio.com/t/formatting-the-x-axis-with-exponent-values-in-r-plot/34055/3
+# https://stackoverflow.com/questions/10762287/how-can-i-format-axis-labels-with-exponents-with-ggplot2-and-scales
+scientific_10 <- function(x) {
+  parse(text = gsub("[+]", "", gsub("e", " %*% 10^", scales::scientific_format()(x))))
+}
+
+protein_colors <- c(Upf1 = "red", Upf2 = "darkorange", Upf3 = "darkgreen",`Ribosomal protein` = "dodgerblue", 
+                    `Translation initiation factor` = "darkblue", `Translation elongation factor` = "darkviolet",
+                    `Translation termination factor` = "limegreen", `mRNA decay factor` = "brown", 
+                    `Protein folding chaperone` = "gold", Other = "grey60")
+
+bar_plot <- function(df2, y_breaks = seq(0, 10*10^9, 1*10^9), legend_pos = "bottom") {
+  axis_range <- ((max(df2$value)/10^9 - min(df2$value)/10^9)*10^9)
+  p <- ggplot() +
+    geom_col(data = df2,
+             aes(x = plot_order, y = value, fill = Protein2), color = NA, width = 1, alpha = 1) +
+    geom_segment(data = df2[df2$Protein2 %in% c("Upf1"), ], 
+                 aes(x = plot_order, y = value + (axis_range*0.4), 
+                     xend = plot_order, yend = value + (axis_range*0.1), color = Protein2), 
+                 arrow = arrow(length = unit(0.1, "cm"))) +
+    facet_grid(ribosome~sample) +
+    scale_fill_manual(name = "", #limits = c("Upf1", "Upf2", "Upf3", "Ribosomal protein", "Other"),
+                      values = protein_colors) +
+    scale_color_manual(name = "", limits = c("Upf1"), guide = "none", values = protein_colors) +
+    scale_y_continuous(labels = scientific_10, breaks = y_breaks) + # N-term
+    ylab("Ave. Normalized iBAQ") + xlab("100 most abundant proteins") +
+    theme_bw(base_size = 8) + 
+    theme(panel.grid = element_blank(), strip.background = element_rect(fill = "white"), strip.text.x = element_text(face = "italic"),
+          axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = legend_pos)
+  return(p)
+}
+
+np <- bar_plot(df2 = tops100[which(tops100$sample %in% c("FLAG-UPF1 (-CHX)", "FLAG-UPF1 (+CHX)", "FLAG-UPF1 UPF2/3 EE (+CHX)")), ], 
+               y_breaks = seq(0, 10*10^9, 1*10^9), legend_pos = "none")
+cp <- bar_plot(df2 = tops100[which(tops100$sample %in% c("UPF1-FLAG (+CHX)", "UPF1-FLAG/upf2Δ (+CHX)", "DE572AA-FLAG (+CHX)")), ], 
+               y_breaks = seq(0, 2*10^10, 2*10^9), legend_pos = "none")
+hp <- bar_plot(df2 = tops100[which(tops100$sample %in% c("6XHis-UPF1 (+CHX)")), ], 
+               y_breaks = seq(0, 10*10^10, 10*10^9), legend_pos = "right")
+
+```
+```{r}
+library(patchwork)
+pb <- np + hp + cp + guide_area() + plot_layout(ncol = 2, widths = c(3, 1), guides = "collect")
+
+# Export plot
+library(Cairo)
+CairoFonts(
+  regular = "Arial:style=Regular",
+  bold = "Arial:style=Black",
+  italic = "Arial:style=Italic",
+  bolditalic = "Arial:style=Black Italic",
+  symbol = "Symbol"
+)
+cairo_pdf(filename = "../../Figures/Mass_spec_bar_top100_7.5x7.pdf", family = "Arial", width = 7.5, height = 7) 
+pb
+dev.off()
+```
+
 
 ## Export data into csv files
 

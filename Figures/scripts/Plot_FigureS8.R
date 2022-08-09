@@ -1,80 +1,113 @@
 # ---------------------------------------
-# Figure S8
-#   A-B: Fractions of P-site region
-#   C-D: P-site reading frame fractions
-#   Calculated with only relevant footprint lengths with corrected/verified P-site offsets (20-23nt, 27-32nt, 37-43nt)
+# Figure S8 -- Metagene bin (4 bins) across normalized CDS for individual transcript
 # ---------------------------------------
 
 library(dplyr)
 library(ggplot2)
 library(ggh4x)
-library(ggpubr)
 
-# A-B -----------------------------------
-# Prepare Data
-  # N-terminal data
-dfa <- read.table("../data/Data_FigureS8a_Nterm.txt", header = TRUE, sep = "\t")
-dfa$strain <- recode(dfa$strain, `FLAG-UPF1 UPF2/3 EE` = "FLAG-UPF1\nUPF2/3 EE")
-dfa$strain <- factor(dfa$strain, levels = sort(unique(dfa$strain))[c(3, 1, 2)])
-dfa$psite_region <- recode_factor(dfa$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
-dfa$riborep <- sub("_.*_", " rep ", dfa$sample)
+# Prepare data
+Nterm_bin4 <- read.table(file = "../data/Data_FigureS8_Nterm_bin4.txt", header = TRUE, sep = "\t")
+Nterm_bin4$strain <- factor(Nterm_bin4$strain, levels = c("WT + EV", "FLAG-UPF1"))
+Nterm_bin4$bin <- factor(Nterm_bin4$bin, levels = c("0-25", "25-50", "50-75", "75-100"))
+Nterm_bin4$size <- factor(Nterm_bin4$size, levels = c("S", "M", "L"))
+Nterm_bin4$Ribosomes <- factor(Nterm_bin4$Ribosomes, levels = c("Total", "IP"))
+Nterm_bin4$CHX <- as.factor(Nterm_bin4$CHX)
+Nterm_bin4$strain_CHX <- paste0(Nterm_bin4$strain, "\n(", Nterm_bin4$CHX, ")")
 
-  # C-terminal data
-dfb <- read.table("../data/Data_FigureS8b_Cterm.txt", header = TRUE, sep = "\t")
-dfb$strain <- factor(dfb$strain, levels = sort(unique(dfb$strain))[c(4, 2, 3, 1)])
-dfb$psite_region <- recode_factor(dfb$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
-dfb$riborep <- sub("_.*_", " rep ", dfb$sample)
-dfb$CHX <- "+CHX"
+Nterm_bin4_diff <- reshape2::dcast(Nterm_bin4, CHX + strain + strain_CHX + size + transcript + bin ~ Ribosomes, value.var = "value")
+Nterm_bin4_diff$diff <- Nterm_bin4_diff$IP - Nterm_bin4_diff$Total
+Nterm_bin4_diff <- Nterm_bin4_diff[complete.cases(Nterm_bin4_diff), ]
 
-# Plot (the same code is used to plot N- and C-terminal data). Assign the desired data.frame to 'data' argument.
-pb <- ggplot(data = dfb) +
-  geom_tile(aes(x = psite_region, y = reorder(riborep, dplyr::desc(riborep)), fill = fraction*100), height = 0.9, width = 0.9, color = NA) +
-  geom_text(aes(x = psite_region, y = reorder(riborep, dplyr::desc(riborep)), label = round(fraction*100, digits = 2), color = psite_region), 
-            size = 1.5, show.legend = FALSE) +
-  facet_nested(strain+CHX~., space = "free", scales = "free") +
-  scale_fill_distiller(name = "% of footprints ", type = "seq", palette = "Blues", direction = 1, limit = c(0, 100)) +
-  scale_color_manual(name = "", values = c("black", "white", "black")) +
-  ylab("") + xlab("P-site region") +
+Cterm_bin4 <- read.table(file = "../data/Data_FigureS8_Cterm_bin4.txt", header = TRUE, sep = "\t")
+Cterm_bin4$strain <- factor(Cterm_bin4$strain, levels = c("WT + EV", "UPF1-FLAG", "UPF1-FLAG/upf2Δ", "DE572AA-FLAG"))
+Cterm_bin4$bin <- factor(Cterm_bin4$bin, levels = c("0-25", "25-50", "50-75", "75-100"))
+Cterm_bin4$size <- factor(Cterm_bin4$size, levels = c("S", "M", "L"))
+Cterm_bin4$Ribosomes <- factor(Cterm_bin4$Ribosomes, levels = c("Total", "IP"))
+Cterm_bin4$CHX <- as.factor(Cterm_bin4$CHX)
+Cterm_bin4$strain_CHX <- paste0(Cterm_bin4$strain, "\n(", Cterm_bin4$CHX, ")")
+
+Cterm_bin4_diff <- reshape2::dcast(Cterm_bin4, CHX + strain + strain_CHX + size + transcript + bin ~ Ribosomes, value.var = "value")
+Cterm_bin4_diff$diff <- Cterm_bin4_diff$IP - Cterm_bin4_diff$Total
+Cterm_bin4_diff <- Cterm_bin4_diff[complete.cases(Cterm_bin4_diff), ]
+Cterm_bin4_diff$strain_CHX <- factor(Cterm_bin4_diff$strain_CHX, levels = sort(unique(Cterm_bin4_diff$strain_CHX))[c(2, 3, 1)])
+
+# Plot
+A <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "-CHX"), ]) +
+  geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 25, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain+CHX, space = "free") +
+  scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
+  xlab("% CDS") + ylab("% Footprint Count") +
   theme_bw(base_size = 8) + 
-  theme(panel.grid = element_blank(), strip.text.y = element_text(face = "italic"),
-        strip.background = element_rect(fill = "white"), strip.placement = "outside",
-        legend.position = "top", legend.key.height = unit(0.25, "cm"))
+  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
 
-# C-D -----------------------------------
-# Prepare Data
-  # N-terminal data
-dfc <- read.table("../data/Data_FigureS8c_Nterm.txt", header = TRUE, sep = "\t")
-dfc$strain <- recode(dfc$strain, `FLAG-UPF1 UPF2/3 EE` = "FLAG-UPF1\nUPF2/3 EE")
-dfc$strain <- factor(dfc$strain, levels = sort(unique(dfc$strain))[c(3, 1, 2)])
-dfc$psite_region <- recode_factor(dfc$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
-dfc$riborep <- sub("_.*_", " rep ", dfc$sample)
-
-  # C-terminal data
-dfd <- read.table("../data/Data_FigureS8d_Cterm.txt", header = TRUE, sep = "\t")
-dfd$strain <- factor(dfd$strain, levels = sort(unique(dfd$strain))[c(4, 2, 3, 1)])
-dfd$psite_region <- recode_factor(dfd$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
-dfd$riborep <- sub("_.*_", " rep ", dfd$sample)
-dfd$CHX <- "+CHX"
-
-# Plot (the same code is used to plot N- and C-terminal data). Assign the desired data.frame to 'data' argument.
-pd <- ggplot(data = dfd) +
-  geom_tile(aes(x = Frame, y = reorder(riborep, dplyr::desc(riborep)), fill = fraction_by_region*100), height = 0.9, width = 0.9, color = NA) +
-  geom_text(aes(x = Frame, y = reorder(riborep, dplyr::desc(riborep)), label = round(fraction_by_region*100, digits = 2)),
-            size = 1.5, show.legend = FALSE) +
-  facet_nested(strain+CHX~psite_region, space = "free", scales = "free") +
-  scale_fill_distiller(name = "% of footprints ", type = "seq", palette = "Blues", direction = 1) +
-  ylab("") +
+B <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "+CHX"), ]) +
+  geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 25, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain+CHX, space = "free") +
+  scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
+  xlab("% CDS") + ylab("% Footprint Count") +
   theme_bw(base_size = 8) + 
-  theme(panel.grid = element_blank(), strip.text.y = element_text(face = "italic"),
-        strip.background = element_rect(fill = "white"), strip.placement = "outside",
-        legend.position = "top", legend.key.height = unit(0.25, "cm"))
+  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
 
-# ---------------------------------------
+C <- ggplot(Cterm_bin4) +
+  geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 25, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain+CHX, space = "free") +
+  scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
+  xlab("% CDS") + ylab("% Footprint Count") +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "right", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+
+D <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "-CHX"), ]) +
+  geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain_CHX, space = "free") +
+  scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
+  xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+
+E <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "+CHX"), ]) +
+  geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain_CHX, space = "free") +
+  scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
+  xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "right", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+
+FF <- ggplot(Cterm_bin4_diff) +
+  geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
+               position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  facet_nested(size~strain_CHX, space = "free") +
+  scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
+  xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
+  theme_bw(base_size = 8) + 
+  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
+        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+
 # Combine panels
 library(patchwork)
-s8 <- pa + pb + pc + pd +
-  plot_layout(heights = c(16, 21), widths = c(3, 5), byrow = FALSE) +
-  plot_annotation(tag_levels = 'A')  & theme(plot.tag = element_text(size = 9, face = "bold"))
+ABC <- ((A + B) / C) + plot_annotation(tag_levels = 'A')  & theme(plot.tag = element_text(size = 9, face = "bold"))
+EE <- (E + plot_spacer()) + plot_layout(widths = c(0.5, 0.5))
+EF <- (EE / FF) + plot_annotation(tag_levels = list(c('E', 'F')))  & theme(plot.tag = element_text(size = 9, face = "bold"))
+DEF <- (D + EF + plot_layout(widths = c(1, 3))) + 
+  plot_annotation(tag_levels = list(c('D', 'E', 'F'))) & theme(plot.tag = element_text(size = 9, face = "bold"))
+
+p <- ABC / DEF
 
 # Export plot
 library(Cairo)
@@ -85,6 +118,6 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "psite_region_reading_frame_6x10.pdf", family = "Arial", width = 6, height = 10) 
-s8
+cairo_pdf(filename = "Metagene_bin4_8x11.pdf", family = "Arial", width = 8, height = 11) 
+p
 dev.off()
