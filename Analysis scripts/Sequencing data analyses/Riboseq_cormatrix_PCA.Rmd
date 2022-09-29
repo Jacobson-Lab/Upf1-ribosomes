@@ -84,10 +84,10 @@ cormat_ribo <- ggplot(R_cor) +
   facet_nested(strain2+CHX2+ribo2~strain1+CHX1+ribo1, scales = "free", space = "free", 
                nest_line = TRUE, strip = strip_nested(size = "variable")) +
   xlab("") + ylab("") +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(panel.grid = element_blank(), panel.spacing = unit(0.1, "cm"), panel.border = element_rect(size = 0.2),
         strip.background = element_blank(), strip.text = element_text(face = "italic"), 
-        legend.position = "top", legend.key.height = unit(0.25, "cm"), aspect.ratio = 1)
+        legend.position = "top", legend.key.height = unit(0.25, "cm"), legend.key.width = unit(1, "cm"), aspect.ratio = 1)
 ```
 
 #### PCA
@@ -135,22 +135,26 @@ pall <- RColorBrewer::brewer.pal(n = 12, "Paired")
 pca_ribo <- ggplot(pcaData, aes(x = PC1, y = PC2, color = strain)) +
   geom_hline(yintercept = 0, linetype = "dashed", size = 0.5) +
   geom_vline(xintercept = 0, linetype = "dashed", size = 0.5) +
-  geom_point(aes(shape = riboCHX), alpha = 1, size = 1, stroke = 0.5) +
-  geom_text(aes(label = rep), size = 1.5, nudge_y = 0.5, show.legend = FALSE) +
+  geom_point(aes(shape = riboCHX), alpha = 1, size = 2, stroke = 0.5) +
+  geom_text(aes(label = rep), size = 6/.pt, nudge_y = 1, show.legend = FALSE) +
   xlab(paste0("PCA: ", percentVar[1], "% variance")) + ylab(paste0("PCA: ", percentVar[2], "% variance")) +
   scale_shape_manual(name = "Library", values = c(`Total -CHX` = 0, `Total +CHX` = 12, `IP -CHX` = 1, `IP +CHX` = 10)) +
   scale_color_manual(values = c("grey20", "#E31A1C", "#6A3D9A", # N-term
-                                "grey60", "#FB9A99", "#B2DF8A", "#A6CEE3")) + # C-term
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "bottom", legend.box = "vertical", legend.margin = unit(0.5, "cm"), legend.box.just = "left", legend.key.height = unit(0.1, "cm")) +
-  guides(color = guide_legend(title = "Strain", label.theme = element_text(face = "italic", size = 6), byrow = TRUE, 
-                              order = 1, nrow = 3),
-         shape = guide_legend(order = 2, nrow = 1))
+                                "grey60", "#FB9A99", "#B2DF8A", "#A6CEE3" # C-term
+                                )) +
+  theme_bw(base_size = 10) + 
+  #theme(legend.position = "bottom", legend.box = "vertical", legend.margin = unit(0.5, "cm"), legend.box.just = "left", legend.key.height = unit(0.1, "cm")) +
+  #guides(color = guide_legend(title = "Strain", label.theme = element_text(face = "italic", size = 8), byrow = TRUE, 
+   #                           order = 1, nrow = 2),
+    #     shape = guide_legend(order = 2, nrow = 1))
+  theme(legend.position = "right", legend.box = "vertical", legend.key.height = unit(0.3, "cm"), aspect.ratio = 2.75/7) +
+  guides(color = guide_legend(title = "Strain", label.theme = element_text(face = "italic", size = 8), order = 1),
+         shape = guide_legend(order = 2))
 ```
 
 #### Combine plots
 ```{r}
-p <- ggarrange(cormat_ribo, pca_ribo, nrow = 2, labels = "AUTO", heights = c(0.7, 0.3), font.label = list(size = 9, face = "bold"))
+p <- ggarrange(cormat_ribo, pca_ribo, nrow = 2, labels = "AUTO", heights = c(0.75, 0.25), font.label = list(size = 12, face = "bold"))
 ```
 ```{r}
 library(Cairo)
@@ -161,7 +165,7 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "../../Figures/Replicate_reproducibility_Riboseq_6.5x10.pdf", family = "Arial", width = 6.5, height = 10) 
+cairo_pdf(filename = "Replicate_reproducibility_Riboseq_8x11_v4.pdf", family = "Arial", width = 8, height = 11) 
 p
 dev.off()
 ```

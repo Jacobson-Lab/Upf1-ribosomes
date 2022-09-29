@@ -142,8 +142,8 @@ pvolcano <- ggplot() +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey50") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
   geom_label_repel(data = res_df, 
-             aes(x = logFC, y = -log10(adj.P.Val), color = Protein2, label = repel), alpha = 1, size = 1.5,
-             show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0, box.padding = 0.2, segment.size = 0.2, hjust = 0.5, 
+             aes(x = logFC, y = -log10(adj.P.Val), color = Protein2, label = repel), alpha = 1, size = 8/.pt,
+             show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0, box.padding = 0.2, segment.size = 0.25, hjust = 0.5, 
              direction = "both", point.padding = 0, label.padding = 0.1) +
   facet_wrap(~sample, nrow = 2) +
   scale_color_manual(name = "",
@@ -153,7 +153,7 @@ pvolcano <- ggplot() +
                                 `Protein folding chaperone` = "gold", Other = "grey60")) +
   xlab(expression("log"[2]*"(IP / Total)")) + ylab(expression("-log"[10]*"(adjusted p-value)")) +
   coord_cartesian(clip = "off") +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(panel.grid = element_blank(), strip.background = element_blank(), strip.text = element_text(face = "italic"),
         legend.position = "bottom", legend.key.width = unit(0.1, "cm"), 
         legend.text = element_text(margin = margin(r = 0.5, unit = "cm"))) +
@@ -193,8 +193,8 @@ pscatter <- ggplot() +
              aes(x = log10(Total), y = log10(IP), color = Protein2), alpha = 1, size = 0.7) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
   geom_label_repel(data = dfs, 
-             aes(x = log10(Total), y = log10(IP), color = Protein2, label = repel), alpha = 1, size = 1.5,
-             show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0, box.padding = 0.2, segment.size = 0.2, hjust = 0.5, 
+             aes(x = log10(Total), y = log10(IP), color = Protein2, label = repel), alpha = 1, size = 8/.pt,
+             show.legend = FALSE, max.overlaps = Inf, min.segment.length = 0, box.padding = 0.2, segment.size = 0.25, hjust = 0.5, 
              direction = "both", point.padding = 0, label.padding = 0.1) +
   facet_wrap(~sample, ncol = 4) +
   scale_color_manual(name = "", #limits = c("Upf1", "Upf2", "Upf3", "Ribosomal protein", "Other"),
@@ -204,7 +204,7 @@ pscatter <- ggplot() +
                                 `Protein folding chaperone` = "gold", Other = "grey60")) +
   xlab(expression("log"[10]*"(Total)")) + ylab(expression("log"[10]*"(IP)")) +
   coord_cartesian(xlim = c(4, 10.7), ylim = c(4, 10.7), clip = "off") +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(panel.grid = element_blank(), strip.background = element_blank(), strip.text = element_text(face = "italic"),
         legend.position = "none") +  
   guides(colour = guide_legend(title = NULL, byrow = FALSE, override.aes = list(size = 1), nrow = 3), 
@@ -221,7 +221,7 @@ pv <- pvolcano + theme(legend.position = "none") + plot_spacer() + plot_layout(w
 pleg <- get_legend(pvolcano)
 psv <- ggarrange(pscatter, pv, pleg, 
                  ncol = 1, nrow = 3, heights = c(1, 1, 0.1),
-                 labels = c("A", "B", ""), font.label = list(size = 9, face = "bold"))
+                 labels = c("A", "B", ""), font.label = list(size = 12, face = "bold"))
 
 # Export plot
 library(Cairo)
@@ -232,7 +232,7 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "../../Figures/Mass_spec_scatter_volcano_7x9.pdf", family = "Arial", width = 7, height = 9) 
+cairo_pdf(filename = "Mass_spec_scatter_volcano_7.5x9.5.pdf", family = "Arial", width = 7.5, height = 9.5) 
 psv
 dev.off()
 ```
@@ -296,7 +296,7 @@ bar_plot <- function(df2, y_breaks = seq(0, 10*10^9, 1*10^9), legend_pos = "bott
     scale_color_manual(name = "", limits = c("Upf1"), guide = "none", values = protein_colors) +
     scale_y_continuous(labels = scientific_10, breaks = y_breaks) + # N-term
     ylab("Ave. Normalized iBAQ") + xlab("100 most abundant proteins") +
-    theme_bw(base_size = 8) + 
+    theme_bw(base_size = 10) + 
     theme(panel.grid = element_blank(), strip.background = element_rect(fill = "white"), strip.text.x = element_text(face = "italic"),
           axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = legend_pos)
   return(p)
@@ -312,7 +312,8 @@ hp <- bar_plot(df2 = tops100[which(tops100$sample %in% c("6XHis-UPF1 (+CHX)")), 
 ```
 ```{r}
 library(patchwork)
-pb <- np + hp + cp + guide_area() + plot_layout(ncol = 2, widths = c(3, 1), guides = "collect")
+#pb <- np + hp + cp + guide_area() + plot_layout(ncol = 2, widths = c(3, 1), guides = "collect")
+pb <- np + hp + theme(axis.title.y = element_blank()) + cp + guide_area() + plot_layout(ncol = 2, widths = c(3.1, 0.9), guides = "collect")
 
 # Export plot
 library(Cairo)
@@ -323,7 +324,7 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "../../Figures/Mass_spec_bar_top100_7.5x7.pdf", family = "Arial", width = 7.5, height = 7) 
+cairo_pdf(filename = "Mass_spec_bar_top100_8.5x7.pdf", family = "Arial", width = 8.5, height = 7) 
 pb
 dev.off()
 ```

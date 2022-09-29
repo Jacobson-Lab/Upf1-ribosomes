@@ -23,16 +23,16 @@ utr3_p <- ggplot(utr3, aes(x = ribo, y = fraction*100, fill = ribo)) +
   stat_summary(fun = mean, geom = "bar", color = NA, position = "dodge") + # Add mean bar
   #stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 2)), size = 1.5, vjust = -0.3, color = "black") + # Add mean number above bar
   geom_point(color = "grey25", position = position_dodge2(width = 0.75), size = 0.75, alpha = 0.5, show.legend = FALSE) +
-  stat_compare_means(method = "t.test", comparisons = list(c("IP", "Total")), size = 1.5, paired = TRUE) +
+  stat_compare_means(method = "t.test", comparisons = list(c("IP", "Total")), size = 8/.pt, paired = TRUE) +
   facet_grid(.~strain) +
   scale_fill_manual(name = "", values = c(IP = "orange", Total = "purple"), drop = FALSE) +
   xlab("") + ylab("% Footprint in the 3'-UTR") +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(strip.background = element_rect(fill = "white"), panel.grid = element_blank(), strip.text.x = element_text(face = "italic"),
         legend.position = "none")
 
 # B: Compare percentage of reading frame 0 in 3'-UTR between IP and Total -----------------------------------
-dfd <- read.table("../data/Data_FigureS8d_Cterm.txt", header = TRUE, sep = "\t")
+dfd <- read.table("../data/Data_FigureS10d_Cterm.txt", header = TRUE, sep = "\t")
 dfd$strain <- factor(dfd$strain, levels = sort(unique(dfd$strain))[c(4, 2, 3, 1)])
 dfd$psite_region <- recode_factor(dfd$psite_region, `5utr` = "5'-UTR", cds = "CDS", `3utr` = "3'-UTR")
 dfd$riborep <- sub("_.*_", " rep ", dfd$sample)
@@ -48,18 +48,18 @@ f0_p <- ggplot(f0, aes(x = ribo, y = fraction_by_region*100, fill = ribo)) +
   #stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 2)), size = 1.5, vjust = -0.3, color = "black") + # Add mean number above bar
   geom_point(color = "grey25", position = position_dodge2(width = 0.75), size = 0.75, alpha = 0.5, show.legend = FALSE) +
   geom_hline(yintercept = 100/3, linetype = "dashed", color = "grey50", size = 0.5) +
-  stat_compare_means(method = "t.test", comparisons = list(c("IP", "Total")), size = 1.5, paired = TRUE) +
+  stat_compare_means(method = "t.test", comparisons = list(c("IP", "Total")), size = 8/.pt, paired = TRUE) +
   facet_grid(.~strain) +
   scale_fill_manual(name = "", values = c(IP = "orange", Total = "purple"), drop = FALSE) +
   xlab("") + ylab("% Frame 0 footprint within the 3'-UTR") +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(strip.background = element_rect(fill = "white"), panel.grid = element_blank(), strip.text.x = element_text(face = "italic"),
         legend.position = "none")
 
 # ---------------------------------------
 # Combine panels
 library(patchwork)
-p <- utr3_p + f0_p + plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 9, face = "bold"))
+p <- utr3_p + f0_p + plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 12, face = "bold"))
 
 # Export plot
 library(Cairo)
@@ -70,6 +70,6 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "utr3_statistics_6x3.pdf", family = "Arial", width = 6, height = 3) 
+cairo_pdf(filename = "utr3_statistics_7.5x4.pdf", family = "Arial", width = 7.5, height = 4) 
 p
 dev.off()

@@ -64,10 +64,10 @@ A <- ggplot(df_filter[df_filter$strain %in% forplot & df_filter$Distance %in% se
   scale_fill_distiller(name = "Mean relative occupancy  ", palette = "RdBu", direction = -1, limits = c(0, 2), oob = squish,
                        labels = c("0.0", "0.5", "1.0", "1.5", "> 2.0")) +
   xlab("Codon distance to A-site") + ylab("") +
-  theme_bw(base_size = 8) +
+  theme_bw(base_size = 9) +
   theme(panel.grid = element_blank(), panel.spacing.y = unit(0, "in"), #panel.border = element_blank(),
         legend.position = "top", plot.title = element_text(hjust = 0.5, face = "italic"),
-        strip.background = element_blank(),
+        strip.background = element_blank(), axis.text.x = element_text(angle = 45),
         strip.text = element_text(angle = 0, face = "italic"), strip.text.y = element_blank()) +
   guides(fill = guide_colorbar(barheight = 0.5))
 ```
@@ -96,8 +96,8 @@ B <- ggplot(df2[df2$Distance %in% seq(-10, 10, 1) & df2$strain %in% forplot, ],
   scale_y_discrete(limits = rev) +
   scale_x_continuous(expand = c(0, 0)) +
   xlab("Codon distance to A-site") + ylab("") +
-  theme_bw(base_size = 8) +
-  theme(panel.grid = element_blank(), legend.position = "top", panel.spacing.y = unit(0, "in"),
+  theme_bw(base_size = 9) +
+  theme(panel.grid = element_blank(), legend.position = "top", panel.spacing.y = unit(0, "in"), axis.text.x = element_text(angle = 45),
         strip.background = element_blank(), strip.text = element_text(face = "italic"), strip.text.y = element_blank()) +
   guides(fill = guide_colorbar(barheight = 0.5))
 ```
@@ -117,9 +117,9 @@ CairoFonts(
 p <- (A + B) + 
   plot_layout(nrow = 1, widths = c(7, 3), guides = "keep") +
   plot_annotation(tag_levels = 'A') & 
-  theme(plot.tag = element_text(size = 9, face = "bold"), plot.tag.position = "topleft")
+  theme(plot.tag = element_text(size = 12, face = "bold"), plot.tag.position = "topleft")
 
-cairo_pdf(filename = "A-site_mean_relative_occupancy_scwrm_11x7_landscape.pdf", family = "Arial", width = 11, height = 7) 
+cairo_pdf(filename = "A-site_mean_relative_occupancy_scwrm_11x8_landscape.pdf", family = "Arial", width = 11, height = 8) 
 p
 dev.off()
 ```
@@ -159,11 +159,11 @@ tai_0 <- ggplot(df_A_cor, aes(x = strain, y = cor, color = ribo, shape = CHX)) +
   scale_shape_manual(name = "", values = c(`-CHX` = 1, `+CHX` = 10)) +
   ylab("Spearman's rank correlation of\n A-site mean relative occupancy\n(position 0) with 1 / tAI") + xlab("") +
   coord_cartesian(ylim = c(-0.4, 0.4)) +
-  theme_bw(base_size = 8) +
+  theme_bw(base_size = 10) +
   theme(panel.grid = element_blank(), strip.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "top")
 
-cairo_pdf(filename = "A-site_codon_occupancy-vs-tAI_spearman_4x3.pdf", family = "Arial", width = 4, height = 3) 
+cairo_pdf(filename = "A-site_codon_occupancy-vs-tAI_spearman_4.5x3.5.pdf", family = "Arial", width = 4.5, height = 3.5) 
 tai_0
 dev.off()
 ```

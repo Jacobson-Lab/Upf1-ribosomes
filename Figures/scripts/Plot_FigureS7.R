@@ -13,13 +13,11 @@ library(ggpubr)
 dfn <- read.table("../data/Data_FigureS7_Nterm.txt", header = TRUE, sep = "\t")
 dfn$strain <- factor(dfn$strain, levels = sort(unique(dfn$strain))[c(2, 1)])
 dfn$size <- factor(dfn$size, levels = c("M", "S", "L")) # specify order of plotting
-ylimit = 0.5
 
   # C-terminal data
 dfc <- read.table("../data/Data_FigureS7_Cterm.txt", header = TRUE, sep = "\t")
 dfc$strain <- factor(dfc$strain, levels = sort(unique(dfc$strain))[c(4, 2, 3, 1)])
 dfc$size <- factor(dfc$size, levels = c("S", "M", "L")) # specify order of plotting
-ylimit = 0.6
 
 # Plot (the same code is used to plot N- and C-terminal data). Assign the desired data.frame to 'data' argument.
   # Adapted from riboWaltz's metaplots.R
@@ -35,15 +33,16 @@ linered <- data.table(reg = rep(c("Distance from start (nt)", "Distance from sto
                       ribo = rep(c("IP", "Total"), each = 2),
                       line = rep(c(0, 1), times = 2))
 
+ylimit = 0.6
 A <- ggplot(data = dfn) +
-  geom_vline(data = lines3nt2, aes(xintercept = line), linetype = "dotted", color = "grey50", size = 0.1) +
-  geom_vline(data = linered, aes(xintercept = line), linetype = "solid", color = "grey50", size = 0.1) +
-  geom_line(aes(x = distance, y = fraction_ave*100, color = size), size = 0.3) +
+  geom_vline(data = lines3nt2, aes(xintercept = line), linetype = "dotted", color = "grey50", size = 0.25) +
+  geom_vline(data = linered, aes(xintercept = line), linetype = "solid", color = "grey50", size = 0.25) +
+  geom_line(aes(x = distance, y = fraction_ave*100, color = size), size = 0.4) +
   facet_nested(strain+CHX~ribo+reg, switch = "x", scales = "free", nest_line = TRUE) +
   scale_color_manual(breaks = c("S", "M", "L"), values = c(S = "royalblue1", M = "tomato", L = "forestgreen"), name = "Footprint size") +
   ylab("% Footprint count") +
   coord_cartesian(ylim = c(0, ylimit)) + 
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(panel.grid = element_blank(), axis.title.x = element_blank(), strip.text.y = element_text(face = "italic"),
         strip.background = element_blank(), strip.placement = "outside",
         legend.position = "top") +
@@ -55,7 +54,7 @@ library(patchwork)
 p <- (A / B) + 
   plot_layout(guides = "collect") +
   plot_annotation(tag_levels = 'A') & 
-  theme(plot.tag = element_text(size = 9, face = "bold"), legend.position = "top", plot.tag.position = "topleft")
+  theme(plot.tag = element_text(size = 12, face = "bold"), legend.position = "top", plot.tag.position = "topleft")
 
 # Export plot
 library(Cairo)
@@ -66,6 +65,6 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "Metagene_7x10.pdf", family = "Arial", width = 7, height = 10) 
+cairo_pdf(filename = "Metagene_8x10.5.pdf", family = "Arial", width = 8, height = 10.5) 
 p
 dev.off()

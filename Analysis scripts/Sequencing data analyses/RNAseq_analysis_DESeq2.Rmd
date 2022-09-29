@@ -135,14 +135,14 @@ nn$yn <- -lim-0.5
 p <- ggplot(df_filter[which(df_filter$sig == "p < 0.01"), ]) +
   geom_point(aes(x = baseMean, y = log2FoldChange_lim, color = sig, shape = outsidelim), alpha = 0.25, size = 0.5) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
-  geom_text(data = nn[which(nn$sig == "p < 0.01"), ], aes(x = 10^1, y = yn, label = paste0("n = ", Freq), color = sig), size = 2, hjust = 0, show.legend = FALSE) +
+  geom_text(data = nn[which(nn$sig == "p < 0.01"), ], aes(x = 10^1, y = yn, label = paste0("n = ", Freq), color = sig), size = 8/.pt, hjust = 0, show.legend = FALSE) +
   facet_wrap(~pair2, nrow = 2, as.table = FALSE) +
   scale_x_log10(labels = trans_format("log10", label_math())) +
   scale_color_manual(name = "", values = c("darkblue", "grey40")) + # color by sig
   scale_shape_manual(name = "", values = c(Above = 2, Below = 6, No = 1)) + # For plotting out-of-bound data points
   xlab("Mean of normalized counts") + ylab(expression(paste("log"[2]*" fold change relative to respective ", italic("WT"), " (+ EV)"))) +
   coord_cartesian(ylim = c(-10.5, 10)) +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(legend.position = "none", panel.grid = element_blank(), strip.placement = "outside",
         strip.background = element_blank(), strip.text = element_text(face = "italic")) +
   guides(color = guide_legend(override.aes = list(alpha = 0.5, size = 2)),
@@ -159,7 +159,7 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "../../Figures/RNASeq_MAplot_strain-vs-WT_NMDsubstrates_onlysig_limit10.pdf", family = "Arial", width = 6, height = 4) 
+cairo_pdf(filename = "RNASeq_MAplot_strain-vs-WT_NMDsubstrates_onlysig_limit10.pdf", family = "Arial", width = 7, height = 4) 
 p
 dev.off()
 ```

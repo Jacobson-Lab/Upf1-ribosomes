@@ -33,6 +33,10 @@ Cterm_bin4_diff <- Cterm_bin4_diff[complete.cases(Cterm_bin4_diff), ]
 Cterm_bin4_diff$strain_CHX <- factor(Cterm_bin4_diff$strain_CHX, levels = sort(unique(Cterm_bin4_diff$strain_CHX))[c(2, 3, 1)])
 
 # Plot
+plot_theme <- theme_bw(base_size = 10) + 
+  theme(strip.background = element_blank(), strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0),
+        panel.grid = element_blank(), axis.text.x = element_text(size = 6.5)) 
+
 A <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "-CHX"), ]) +
   geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
                position = position_dodge2(preserve = "single")) + # keep width & position of boxplot consistent
@@ -40,9 +44,7 @@ A <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "-CHX"), ]) +
   facet_nested(size~strain+CHX, space = "free") +
   scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
   xlab("% CDS") + ylab("% Footprint Count") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  plot_theme + theme(legend.position = "none")
 
 B <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "+CHX"), ]) +
   geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
@@ -51,9 +53,7 @@ B <- ggplot(Nterm_bin4[which(Nterm_bin4$CHX == "+CHX"), ]) +
   facet_nested(size~strain+CHX, space = "free") +
   scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
   xlab("% CDS") + ylab("% Footprint Count") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  plot_theme + theme(legend.position = "none")
 
 C <- ggplot(Cterm_bin4) +
   geom_boxplot(aes(x = bin, y = value*100, color = Ribosomes), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
@@ -62,9 +62,7 @@ C <- ggplot(Cterm_bin4) +
   facet_nested(size~strain+CHX, space = "free") +
   scale_color_manual(name = "Ribosomes", values = c(Total = "purple", IP = "orange"), limits = c("Total", "IP")) +
   xlab("% CDS") + ylab("% Footprint Count") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "right", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  plot_theme + theme(legend.position = "right")
 
 D <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "-CHX"), ]) +
   geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
@@ -73,9 +71,7 @@ D <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "-CHX"), ]) +
   facet_nested(size~strain_CHX, space = "free") +
   scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
   xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  plot_theme + theme(legend.position = "none")
 
 E <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "+CHX"), ]) +
   geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
@@ -83,10 +79,8 @@ E <- ggplot(Nterm_bin4_diff[which(Nterm_bin4_diff$CHX == "+CHX"), ]) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
   facet_nested(size~strain_CHX, space = "free") +
   scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
-  xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "right", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  xlab("") + ylab("% Footprint Count\nIP - Total") +
+  plot_theme + theme(legend.position = "right")
 
 FF <- ggplot(Cterm_bin4_diff) +
   geom_boxplot(aes(x = bin, y = diff, color = size), outlier.size = 0.5, outlier.alpha = 0.5, size = 0.5,
@@ -95,17 +89,15 @@ FF <- ggplot(Cterm_bin4_diff) +
   facet_nested(size~strain_CHX, space = "free") +
   scale_color_manual(name = "Footprint size", values = c(S = "royalblue1", M = "tomato"), limits = c("S", "M")) +
   xlab("% CDS") + ylab("% Footprint Count\nIP - Total") +
-  theme_bw(base_size = 8) + 
-  theme(legend.position = "none", panel.grid = element_blank(), strip.background = element_blank(), 
-        strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0)) 
+  plot_theme + theme(legend.position = "none")
 
 # Combine panels
 library(patchwork)
-ABC <- ((A + B) / C) + plot_annotation(tag_levels = 'A')  & theme(plot.tag = element_text(size = 9, face = "bold"))
-EE <- (E + plot_spacer()) + plot_layout(widths = c(0.5, 0.5))
-EF <- (EE / FF) + plot_annotation(tag_levels = list(c('E', 'F')))  & theme(plot.tag = element_text(size = 9, face = "bold"))
+ABC <- ((A + B) / C) + plot_annotation(tag_levels = 'A')  & theme(plot.tag = element_text(size = 12, face = "bold"))
+EE <- (E + plot_spacer()) + plot_layout(widths = c(0.55, 0.45))
+EF <- (EE / FF) + plot_annotation(tag_levels = list(c('E', 'F')))  & theme(plot.tag = element_text(size = 12, face = "bold"))
 DEF <- (D + EF + plot_layout(widths = c(1, 3))) + 
-  plot_annotation(tag_levels = list(c('D', 'E', 'F'))) & theme(plot.tag = element_text(size = 9, face = "bold"))
+  plot_annotation(tag_levels = list(c('D', 'E', 'F'))) & theme(plot.tag = element_text(size = 12, face = "bold"))
 
 p <- ABC / DEF
 
@@ -118,6 +110,6 @@ CairoFonts(
   bolditalic = "Arial:style=Black Italic",
   symbol = "Symbol"
 )
-cairo_pdf(filename = "Metagene_bin4_8x11.pdf", family = "Arial", width = 8, height = 11) 
+cairo_pdf(filename = "Metagene_bin4_8x11_v3.pdf", family = "Arial", width = 8, height = 11) 
 p
 dev.off()

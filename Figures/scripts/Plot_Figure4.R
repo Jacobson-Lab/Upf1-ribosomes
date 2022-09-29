@@ -25,7 +25,7 @@ dfc$strain2 <- paste0(dfc$strain, "\n(+CHX)")
 dfc$strain2 <- factor(dfc$strain2, levels = c("WT + EV\n(+CHX)", "UPF1-FLAG\n(+CHX)", "UPF1-FLAG/upf2\u0394\n(+CHX)", "DE572AA-FLAG\n(+CHX)"))
 
 # Plot for 4a-c (the same code is used to plot N- and C-terminal data). Assign the desired data.frame to 'data' argument. (Only turn on legend for c)
-B <- ggplot(data = dfb, aes(x = bin, y = fraction_ave*100, color = Ribosomes, size = Ribosomes)) +
+C <- ggplot(data = dfc, aes(x = bin, y = fraction_ave*100, color = Ribosomes, size = Ribosomes)) +
   geom_line() +
   geom_hline(yintercept = 1, color = "grey50", linetype = "longdash", size = 0.3) +
   facet_grid(size~strain2) +
@@ -33,9 +33,9 @@ B <- ggplot(data = dfb, aes(x = bin, y = fraction_ave*100, color = Ribosomes, si
   scale_color_manual(name = "Ribosomes", values = c(Total = "Purple", IP = "orange")) +
   scale_size_manual(values = c(IP = 0.3, Total = 0.5)) +
   coord_cartesian(ylim = c(0, 2.2)) +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(strip.background = element_blank(), strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0),
-        panel.grid = element_blank(), legend.position = "none", aspect.ratio = 1) +
+        panel.grid = element_blank(), legend.position = "right", aspect.ratio = 1) +
   guides(color = guide_legend(order = 1, #keywidth = unit(1.5, "cm"), label.position = "bottom",
                               override.aes = list(size = 1)),
          size = "none")
@@ -52,7 +52,7 @@ D <- ggplot(dfd, aes(x = bin, y = fraction_ave*100, color = `CHX (size)`)) +
   facet_grid(Ribosomes~strain) +
   xlab("% CDS") + ylab("% Footprint count") +
   coord_cartesian(ylim = c(0, 2.2)) +
-  theme_bw(base_size = 8) + 
+  theme_bw(base_size = 10) + 
   theme(strip.background = element_blank(), strip.text.x = element_text(face = "italic"), strip.text.y = element_text(angle = 0),
         panel.grid = element_blank(), legend.position = "right", aspect.ratio = 1) +
   guides(color = guide_legend(order = 1, #keywidth = unit(1.5, "cm"), label.position = "bottom",
@@ -62,7 +62,7 @@ D <- ggplot(dfd, aes(x = bin, y = fraction_ave*100, color = `CHX (size)`)) +
 library(patchwork)
 ABC <- ((A + B) / C) + plot_annotation(tag_levels = 'A')
 p <- ABC / (D + plot_spacer() + plot_layout(widths = c(0.6, 0.4))) + 
-  plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 9, face = "bold"))
+  plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 12, face = "bold"))
 
 # Export plot
 library(Cairo)
