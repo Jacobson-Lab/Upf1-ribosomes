@@ -1,7 +1,7 @@
 # Upf1-ribosomes
  
 Analysis scripts and processed data for Ganesan et al.<br/>
-DOI: [pending]
+DOI: 10.1261/rna.079416.122
 
 ### Data availability
 * Raw sequencing data generated in this study have been deposited and are available at NCBI's Gene Expression Omnibus (GEO) under accession number GSE186795.
